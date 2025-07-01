@@ -3,3 +3,15 @@ modules = ["python-3.11"]
 [nix]
 channel = "stable-24_05"
 packages = ["glibcLocales"]
+
+[workflows]
+runButton = "Run"
+
+[[workflows.workflow]]
+name = "Run"
+author = 44208668
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
