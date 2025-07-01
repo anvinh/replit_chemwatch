@@ -9,7 +9,14 @@ class Base(DeclarativeBase):
 
 # Create a separate Flask app just for database operations
 flask_app = Flask(__name__)
-flask_app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+
+# Get database URL from environment or use a default SQLite for development
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    # Fallback to SQLite for development if PostgreSQL is not configured
+    database_url = "sqlite:///development.db"
+
+flask_app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 flask_app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
