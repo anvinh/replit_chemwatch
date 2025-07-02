@@ -1,10 +1,9 @@
 
-
 import os
 import logging
 import dash
 from dash import dcc, html, Input, Output, dash_table, callback_context
-import dash_mantine_components as dmc
+import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
@@ -22,8 +21,8 @@ companies_df = pd.read_csv('attached_assets/temp_company_level_df_1751374177683.
 articles_df['published_at'] = pd.to_datetime(articles_df['published_at'], errors='coerce')
 articles_df['modified_at'] = pd.to_datetime(articles_df['modified_at'], errors='coerce')
 
-# Create Dash app with Mantine theme
-app = dash.Dash(__name__)
+# Create Dash app with Bootstrap theme
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 def get_articles(company_filter=None):
     """Get filtered articles from CSV data"""
@@ -144,86 +143,79 @@ def get_scatter_plot_data(company_filter=None, article_filter=None):
         logging.error(f"Error fetching scatter plot data: {str(e)}")
         return pd.DataFrame()
 
-# App layout using standard html components with dmc styling
-app.layout = html.Div([
-    # Main container
-    html.Div([
+# App layout
+app.layout = dbc.Container([
+    dbc.Row([
         # Sidebar
-        html.Div([
+        dbc.Col([
             html.Div([
-                html.H4("Filters", style={'margin-bottom': '20px'}),
+                html.H4([
+                    html.I(className="fas fa-filter me-2"),
+                    "Filters"
+                ], className="mb-4"),
                 
                 # Company Filter
                 html.Div([
-                    html.Label("Company Filter", style={'font-weight': '500', 'margin-bottom': '5px', 'display': 'block'}),
+                    dbc.Label([
+                        html.I(className="fas fa-building me-1"),
+                        "Company Filter"
+                    ]),
                     dcc.Input(
                         id='company-filter',
                         type='text',
                         placeholder="Enter company name...",
-                        style={'width': '100%', 'padding': '8px', 'border': '1px solid #ccc', 'border-radius': '4px'}
+                        className="form-control"
                     )
-                ], style={'margin-bottom': '20px'}),
+                ], className="mb-4"),
                 
                 # Clear Filters Button
-                html.Button(
-                    "Clear Filters",
-                    id="clear-filters",
-                    style={
-                        'width': '100%',
-                        'padding': '10px',
-                        'background-color': '#f8f9fa',
-                        'border': '1px solid #dee2e6',
-                        'border-radius': '4px',
-                        'cursor': 'pointer',
-                        'margin-bottom': '20px'
-                    }
-                ),
+                dbc.Button([
+                    html.I(className="fas fa-eraser me-1"),
+                    "Clear Filters"
+                ], id="clear-filters", color="outline-secondary", className="w-100 mb-3"),
                 
                 # Filter Status
-                html.Div(id="filter-status", style={'font-size': '0.9em', 'color': '#6c757d'})
-            ], style={
-                'padding': '20px',
-                'background-color': 'white',
-                'border-radius': '8px',
-                'box-shadow': '0 2px 4px rgba(0,0,0,0.1)'
-            })
-        ], style={'width': '25%', 'float': 'left', 'padding-right': '20px'}),
+                html.Div(id="filter-status", className="text-muted small")
+            ], className="p-3 bg-light")
+        ], width=3, className="vh-100 position-fixed"),
         
         # Main Content
-        html.Div([
+        dbc.Col([
             # Header
             html.Div([
-                html.H1("PFAS Articles & Companies Dashboard", style={'margin-bottom': '5px'}),
+                html.H1([
+                    html.I(className="fas fa-newspaper me-2"),
+                    "PFAS Articles & Companies Dashboard"
+                ], className="display-6"),
                 html.P("Monitor and analyze PFAS-related articles and company involvement", 
-                      style={'color': '#6c757d', 'margin-bottom': '30px'})
-            ]),
+                      className="text-muted")
+            ], className="mb-4"),
             
             # Scatter Plot Chart
-            html.Div([
-                html.Div([
-                    html.H5("Articles Published by Week", style={'margin-bottom': '20px'}),
+            dbc.Card([
+                dbc.CardHeader([
+                    html.H5([
+                        html.I(className="fas fa-chart-scatter me-2"),
+                        "Articles Published by Week"
+                    ], className="mb-0")
+                ]),
+                dbc.CardBody([
                     dcc.Graph(id="scatter-plot-chart")
-                ], style={
-                    'padding': '20px',
-                    'background-color': 'white',
-                    'border-radius': '8px',
-                    'box-shadow': '0 2px 4px rgba(0,0,0,0.1)'
-                })
-            ], style={'margin-bottom': '30px'}),
+                ])
+            ], className="mb-4"),
             
             # Articles Table
-            html.Div([
-                html.Div([
+            dbc.Card([
+                dbc.CardHeader([
                     html.Div([
-                        html.H5("Articles", style={'margin': '0', 'display': 'inline-block'}),
-                        html.Span(id="article-count", style={
-                            'background-color': '#e9ecef',
-                            'padding': '2px 8px',
-                            'border-radius': '12px',
-                            'font-size': '0.8em',
-                            'margin-left': '10px'
-                        })
-                    ], style={'display': 'flex', 'justify-content': 'space-between', 'align-items': 'center', 'margin-bottom': '20px'}),
+                        html.H5([
+                            html.I(className="fas fa-newspaper me-2"),
+                            "Articles"
+                        ], className="mb-0"),
+                        dbc.Badge(id="article-count", color="primary")
+                    ], className="d-flex justify-content-between align-items-center")
+                ]),
+                dbc.CardBody([
                     dash_table.DataTable(
                         id='articles-table',
                         columns=[
@@ -271,27 +263,21 @@ app.layout = html.Div([
                             }
                         ]
                     )
-                ], style={
-                    'padding': '20px',
-                    'background-color': 'white',
-                    'border-radius': '8px',
-                    'box-shadow': '0 2px 4px rgba(0,0,0,0.1)'
-                })
-            ], style={'margin-bottom': '30px'}),
+                ])
+            ], className="mb-4"),
             
             # Companies Table
-            html.Div([
-                html.Div([
+            dbc.Card([
+                dbc.CardHeader([
                     html.Div([
-                        html.H5("Related Companies", style={'margin': '0', 'display': 'inline-block'}),
-                        html.Span(id="company-count", style={
-                            'background-color': '#e9ecef',
-                            'padding': '2px 8px',
-                            'border-radius': '12px',
-                            'font-size': '0.8em',
-                            'margin-left': '10px'
-                        })
-                    ], style={'display': 'flex', 'justify-content': 'space-between', 'align-items': 'center', 'margin-bottom': '20px'}),
+                        html.H5([
+                            html.I(className="fas fa-building me-2"),
+                            "Related Companies"
+                        ], className="mb-0"),
+                        dbc.Badge(id="company-count", color="secondary")
+                    ], className="d-flex justify-content-between align-items-center")
+                ]),
+                dbc.CardBody([
                     dash_table.DataTable(
                         id='companies-table',
                         columns=[
@@ -338,26 +324,15 @@ app.layout = html.Div([
                             }
                         ]
                     )
-                ], style={
-                    'padding': '20px',
-                    'background-color': 'white',
-                    'border-radius': '8px',
-                    'box-shadow': '0 2px 4px rgba(0,0,0,0.1)'
-                })
+                ])
             ])
-        ], style={'width': '75%', 'float': 'right'})
-    ], style={
-        'max-width': '1200px',
-        'margin': '0 auto',
-        'padding': '20px',
-        'background-color': '#f8f9fa',
-        'min-height': '100vh'
-    }),
+        ], width=9, className="ms-auto")
+    ]),
     
     # Hidden div to store selected article PK
     html.Div(id="selected-article-pk", style={'display': 'none'}),
     html.Div(id="selected-company-pk", style={'display': 'none'})
-])
+], fluid=True)
 
 # Callbacks
 @app.callback(
@@ -474,4 +449,3 @@ def clear_company_filter(n_clicks):
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=True)
-
