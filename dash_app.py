@@ -1,9 +1,10 @@
 
+
 import os
 import logging
 import dash
 from dash import dcc, html, Input, Output, dash_table, callback_context
-import dash_bootstrap_components as dbc
+import dash_mantine_components as dmc
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
@@ -21,8 +22,8 @@ companies_df = pd.read_csv('attached_assets/temp_company_level_df_1751374177683.
 articles_df['published_at'] = pd.to_datetime(articles_df['published_at'], errors='coerce')
 articles_df['modified_at'] = pd.to_datetime(articles_df['modified_at'], errors='coerce')
 
-# Create Dash app with Bootstrap theme
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+# Create Dash app with Mantine theme
+app = dash.Dash(__name__)
 
 def get_articles(company_filter=None):
     """Get filtered articles from CSV data"""
@@ -143,196 +144,176 @@ def get_scatter_plot_data(company_filter=None, article_filter=None):
         logging.error(f"Error fetching scatter plot data: {str(e)}")
         return pd.DataFrame()
 
-# App layout
-app.layout = dbc.Container([
-    dbc.Row([
-        # Sidebar
-        dbc.Col([
-            html.Div([
-                html.H4([
-                    html.I(className="fas fa-filter me-2"),
-                    "Filters"
-                ], className="mb-4"),
-                
-                # Company Filter
-                html.Div([
-                    dbc.Label([
-                        html.I(className="fas fa-building me-1"),
-                        "Company Filter"
-                    ]),
-                    dcc.Input(
-                        id='company-filter',
-                        type='text',
-                        placeholder="Enter company name...",
-                        className="form-control"
-                    )
-                ], className="mb-4"),
-                
-                # Clear Filters Button
-                dbc.Button([
-                    html.I(className="fas fa-eraser me-1"),
-                    "Clear Filters"
-                ], id="clear-filters", color="outline-secondary", className="w-100 mb-3"),
-                
-                # Filter Status
-                html.Div(id="filter-status", className="text-muted small")
-            ], className="p-3 bg-light")
-        ], width=3, className="vh-100 position-fixed"),
-        
-        # Main Content
-        dbc.Col([
-            # Header
-            html.Div([
-                html.H1([
-                    html.I(className="fas fa-newspaper me-2"),
-                    "PFAS Articles & Companies Dashboard"
-                ], className="display-6"),
-                html.P("Monitor and analyze PFAS-related articles and company involvement", 
-                      className="text-muted")
-            ], className="mb-4"),
+# App layout using dash_mantine_components
+app.layout = dmc.MantineProvider([
+    dmc.Container([
+        dmc.Grid([
+            # Sidebar
+            dmc.GridCol([
+                dmc.Paper([
+                    dmc.Title("Filters", order=4, mb="md"),
+                    
+                    # Company Filter
+                    dmc.Stack([
+                        dmc.Text("Company Filter", fw=500),
+                        dcc.Input(
+                            id='company-filter',
+                            type='text',
+                            placeholder="Enter company name...",
+                            style={'width': '100%'}
+                        )
+                    ], gap="sm"),
+                    
+                    # Clear Filters Button
+                    dmc.Button(
+                        "Clear Filters",
+                        id="clear-filters",
+                        variant="outline",
+                        fullWidth=True,
+                        mt="md"
+                    ),
+                    
+                    # Filter Status
+                    dmc.Text(id="filter-status", size="sm", c="dimmed", mt="md")
+                ], p="md", shadow="sm")
+            ], span=3),
             
-            # Scatter Plot Chart
-            dbc.Card([
-                dbc.CardHeader([
-                    html.H5([
-                        html.I(className="fas fa-chart-scatter me-2"),
-                        "Articles Published by Week"
-                    ], className="mb-0")
-                ]),
-                dbc.CardBody([
-                    dcc.Graph(id="scatter-plot-chart")
-                ])
-            ], className="mb-4"),
-            
-            # Articles Table
-            dbc.Card([
-                dbc.CardHeader([
-                    html.Div([
-                        html.H5([
-                            html.I(className="fas fa-newspaper me-2"),
-                            "Articles"
-                        ], className="mb-0"),
-                        dbc.Badge(id="article-count", color="primary")
-                    ], className="d-flex justify-content-between align-items-center")
-                ]),
-                dbc.CardBody([
-                    dash_table.DataTable(
-                        id='articles-table',
-                        columns=[
-                            {'name': 'Title', 'id': 'Title', 'type': 'text'},
-                            {'name': 'Published Date', 'id': 'Published Date', 'type': 'datetime'},
-                            {'name': 'Country', 'id': 'Country', 'type': 'text'},
-                            {'name': 'Industry', 'id': 'Industry', 'type': 'text'},
-                            {'name': 'Search Term', 'id': 'Search Term', 'type': 'text'},
-                            {'name': 'PK', 'id': 'PK', 'type': 'text'}
-                        ],
-                        data=[],
-                        sort_action="native",
-                        filter_action="native",
-                        page_action="native",
-                        page_current=0,
-                        page_size=10,
-                        row_selectable="single",
-                        selected_rows=[],
-                        style_cell={
-                            'textAlign': 'left',
-                            'padding': '10px',
-                            'fontFamily': 'Arial'
-                        },
-                        style_header={
-                            'backgroundColor': 'rgb(230, 230, 230)',
-                            'fontWeight': 'bold'
-                        },
-                        style_data_conditional=[
-                            {
-                                'if': {'row_index': 'odd'},
-                                'backgroundColor': 'rgb(248, 248, 248)'
-                            }
-                        ],
-                        style_cell_conditional=[
-                            {
-                                'if': {'column_id': 'Title'},
-                                'width': '30%',
-                                'whiteSpace': 'normal',
-                                'height': 'auto',
+            # Main Content
+            dmc.GridCol([
+                # Header
+                dmc.Stack([
+                    dmc.Title("PFAS Articles & Companies Dashboard", order=1),
+                    dmc.Text("Monitor and analyze PFAS-related articles and company involvement", c="dimmed")
+                ], gap="xs", mb="lg"),
+                
+                # Scatter Plot Chart
+                dmc.Paper([
+                    dmc.Stack([
+                        dmc.Title("Articles Published by Week", order=5),
+                        dcc.Graph(id="scatter-plot-chart")
+                    ], gap="sm")
+                ], p="md", shadow="sm", mb="lg"),
+                
+                # Articles Table
+                dmc.Paper([
+                    dmc.Stack([
+                        dmc.Group([
+                            dmc.Title("Articles", order=5),
+                            dmc.Badge(id="article-count", variant="light")
+                        ], justify="space-between"),
+                        dash_table.DataTable(
+                            id='articles-table',
+                            columns=[
+                                {'name': 'Title', 'id': 'Title', 'type': 'text'},
+                                {'name': 'Published Date', 'id': 'Published Date', 'type': 'datetime'},
+                                {'name': 'Country', 'id': 'Country', 'type': 'text'},
+                                {'name': 'Industry', 'id': 'Industry', 'type': 'text'},
+                                {'name': 'Search Term', 'id': 'Search Term', 'type': 'text'},
+                                {'name': 'PK', 'id': 'PK', 'type': 'text'}
+                            ],
+                            data=[],
+                            sort_action="native",
+                            filter_action="native",
+                            page_action="native",
+                            page_current=0,
+                            page_size=10,
+                            row_selectable="single",
+                            selected_rows=[],
+                            style_cell={
+                                'textAlign': 'left',
+                                'padding': '10px',
+                                'fontFamily': 'Arial'
                             },
-                            {
-                                'if': {'column_id': 'PK'},
-                                'width': '0%',
-                                'display': 'none'
-                            }
-                        ]
-                    )
-                ])
-            ], className="mb-4"),
-            
-            # Companies Table
-            dbc.Card([
-                dbc.CardHeader([
-                    html.Div([
-                        html.H5([
-                            html.I(className="fas fa-building me-2"),
-                            "Related Companies"
-                        ], className="mb-0"),
-                        dbc.Badge(id="company-count", color="secondary")
-                    ], className="d-flex justify-content-between align-items-center")
-                ]),
-                dbc.CardBody([
-                    dash_table.DataTable(
-                        id='companies-table',
-                        columns=[
-                            {'name': 'Company Name', 'id': 'Company Name', 'type': 'text'},
-                            {'name': 'Litigation Reason', 'id': 'Litigation Reason', 'type': 'text'},
-                            {'name': 'Claim Category', 'id': 'Claim Category', 'type': 'text'},
-                            {'name': 'Source of PFAS', 'id': 'Source of PFAS', 'type': 'text'},
-                            {'name': 'Settlement Finalized', 'id': 'Settlement Finalized', 'type': 'text'},
-                            {'name': 'Settlement Amount', 'id': 'Settlement Amount', 'type': 'text'},
-                            {'name': 'PK', 'id': 'PK', 'type': 'text'}
-                        ],
-                        data=[],
-                        sort_action="native",
-                        filter_action="native",
-                        page_action="native",
-                        page_current=0,
-                        page_size=10,
-                        row_selectable="single",
-                        selected_rows=[],
-                        style_cell={
-                            'textAlign': 'left',
-                            'padding': '10px',
-                            'fontFamily': 'Arial'
-                        },
-                        style_header={
-                            'backgroundColor': 'rgb(230, 230, 230)',
-                            'fontWeight': 'bold'
-                        },
-                        style_data_conditional=[
-                            {
-                                'if': {'row_index': 'odd'},
-                                'backgroundColor': 'rgb(248, 248, 248)'
-                            }
-                        ],
-                        style_cell_conditional=[
-                            {
-                                'if': {'column_id': 'Company Name'},
-                                'width': '20%',
+                            style_header={
+                                'backgroundColor': 'rgb(230, 230, 230)',
+                                'fontWeight': 'bold'
                             },
-                            {
-                                'if': {'column_id': 'PK'},
-                                'width': '0%',
-                                'display': 'none'
-                            }
-                        ]
-                    )
-                ])
-            ])
-        ], width=9, className="ms-auto")
-    ]),
+                            style_data_conditional=[
+                                {
+                                    'if': {'row_index': 'odd'},
+                                    'backgroundColor': 'rgb(248, 248, 248)'
+                                }
+                            ],
+                            style_cell_conditional=[
+                                {
+                                    'if': {'column_id': 'Title'},
+                                    'width': '30%',
+                                    'whiteSpace': 'normal',
+                                    'height': 'auto',
+                                },
+                                {
+                                    'if': {'column_id': 'PK'},
+                                    'width': '0%',
+                                    'display': 'none'
+                                }
+                            ]
+                        )
+                    ], gap="sm")
+                ], p="md", shadow="sm", mb="lg"),
+                
+                # Companies Table
+                dmc.Paper([
+                    dmc.Stack([
+                        dmc.Group([
+                            dmc.Title("Related Companies", order=5),
+                            dmc.Badge(id="company-count", variant="light", color="gray")
+                        ], justify="space-between"),
+                        dash_table.DataTable(
+                            id='companies-table',
+                            columns=[
+                                {'name': 'Company Name', 'id': 'Company Name', 'type': 'text'},
+                                {'name': 'Litigation Reason', 'id': 'Litigation Reason', 'type': 'text'},
+                                {'name': 'Claim Category', 'id': 'Claim Category', 'type': 'text'},
+                                {'name': 'Source of PFAS', 'id': 'Source of PFAS', 'type': 'text'},
+                                {'name': 'Settlement Finalized', 'id': 'Settlement Finalized', 'type': 'text'},
+                                {'name': 'Settlement Amount', 'id': 'Settlement Amount', 'type': 'text'},
+                                {'name': 'PK', 'id': 'PK', 'type': 'text'}
+                            ],
+                            data=[],
+                            sort_action="native",
+                            filter_action="native",
+                            page_action="native",
+                            page_current=0,
+                            page_size=10,
+                            row_selectable="single",
+                            selected_rows=[],
+                            style_cell={
+                                'textAlign': 'left',
+                                'padding': '10px',
+                                'fontFamily': 'Arial'
+                            },
+                            style_header={
+                                'backgroundColor': 'rgb(230, 230, 230)',
+                                'fontWeight': 'bold'
+                            },
+                            style_data_conditional=[
+                                {
+                                    'if': {'row_index': 'odd'},
+                                    'backgroundColor': 'rgb(248, 248, 248)'
+                                }
+                            ],
+                            style_cell_conditional=[
+                                {
+                                    'if': {'column_id': 'Company Name'},
+                                    'width': '20%',
+                                },
+                                {
+                                    'if': {'column_id': 'PK'},
+                                    'width': '0%',
+                                    'display': 'none'
+                                }
+                            ]
+                        )
+                    ], gap="sm")
+                ], p="md", shadow="sm")
+            ], span=9)
+        ])
+    ], fluid=True),
     
     # Hidden div to store selected article PK
     html.Div(id="selected-article-pk", style={'display': 'none'}),
     html.Div(id="selected-company-pk", style={'display': 'none'})
-], fluid=True)
+])
 
 # Callbacks
 @app.callback(
@@ -449,3 +430,4 @@ def clear_company_filter(n_clicks):
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=True)
+
