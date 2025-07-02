@@ -9,80 +9,91 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
 import numpy as np
-from sqlalchemy import func
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
-# Import database setup
-from database import flask_app, db, Article, Company
+# Load data from CSV files
+articles_df = pd.read_csv('attached_assets/temp_article_df_1751374177682.csv')
+companies_df = pd.read_csv('attached_assets/temp_company_level_df_1751374177683.csv')
+
+# Parse date columns
+articles_df['published_at'] = pd.to_datetime(articles_df['published_at'], errors='coerce')
+articles_df['modified_at'] = pd.to_datetime(articles_df['modified_at'], errors='coerce')
 
 # Create Dash app with Bootstrap theme
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 def get_articles(company_filter=None):
-    """Get filtered articles from database"""
+    """Get filtered articles from CSV data"""
     try:
-        with flask_app.app_context():
-            query = db.session.query(Article)
+        df = articles_df.copy()
+        
+        if company_filter:
+            # Find companies that match the filter and get their associated articles by pk
+            company_pks = companies_df[
+                companies_df['company_name'].str.contains(company_filter, case=False, na=False)
+            ]['pk'].tolist()
             
-            if company_filter:
-                # Find companies that match the filter and get their associated articles by pk
-                company_pks = db.session.query(Company.pk).filter(
-                    Company.company_name.ilike(f'%{company_filter}%')
-                ).all()
-                company_pk_list = [pk[0] for pk in company_pks]
-                if company_pk_list:
-                    query = query.filter(Article.pk.in_(company_pk_list))
-                else:
-                    return pd.DataFrame()  # No matching companies found
-            
-            articles = query.order_by(Article.published_at.desc()).all()
-            
-            data = []
-            for article in articles:
-                data.append({
-                    'PK': article.pk,
-                    'Article ID': article.article_id,
-                    'Title': article.title,
-                    'URL': article.url,
-                    'Published Date': article.published_at.strftime('%Y-%m-%d %H:%M') if article.published_at else '',
-                    'Country': article.country_code,
-                    'Industry': article.isic_name,
-                    'Search Term': article.search_term
-                })
-            
-            return pd.DataFrame(data)
+            if company_pks:
+                df = df[df['pk'].isin(company_pks)]
+            else:
+                return pd.DataFrame()  # No matching companies found
+        
+        # Sort by published date descending
+        df = df.sort_values('published_at', ascending=False, na_position='last')
+        
+        # Format data for display
+        data = []
+        for _, article in df.iterrows():
+            data.append({
+                'PK': str(article['pk']),
+                'Article ID': str(article['article_id']) if pd.notna(article['article_id']) else '',
+                'Title': str(article['title']) if pd.notna(article['title']) else '',
+                'URL': str(article['url']) if pd.notna(article['url']) else '',
+                'Published Date': article['published_at'].strftime('%Y-%m-%d %H:%M') if pd.notna(article['published_at']) else '',
+                'Country': str(article['country_code']) if pd.notna(article['country_code']) else '',
+                'Industry': str(article['isic_name']) if pd.notna(article['isic_name']) else '',
+                'Search Term': str(article['search_term']) if pd.notna(article['search_term']) else ''
+            })
+        
+        return pd.DataFrame(data)
     except Exception as e:
         logging.error(f"Error fetching articles: {str(e)}")
         return pd.DataFrame()
 
 def get_companies(article_filter=None):
-    """Get filtered companies from database"""
+    """Get filtered companies from CSV data"""
     try:
-        with flask_app.app_context():
-            query = db.session.query(Company)
+        df = companies_df.copy()
+        
+        if article_filter:
+            # Filter companies based on article pk
+            df = df[df['pk'] == article_filter]
+        
+        # Sort by company name
+        df = df.sort_values('company_name', na_position='last')
+        
+        # Format data for display
+        data = []
+        for _, company in df.iterrows():
+            settlement_amount = ''
+            if pd.notna(company['settlement_amount']):
+                currency = str(company['settlement_currency']) if pd.notna(company['settlement_currency']) else ''
+                settlement_amount = f"{currency} {company['settlement_amount']:,.0f}".strip()
             
-            if article_filter:
-                # Filter companies based on article pk
-                query = query.filter(Company.pk == article_filter)
-            
-            companies = query.order_by(Company.company_name).all()
-            
-            data = []
-            for company in companies:
-                data.append({
-                    'PK': company.pk,
-                    'Company Name': company.company_name,
-                    'Litigation Reason': company.litigation_reason,
-                    'Claim Category': company.claim_category,
-                    'Source of PFAS': company.source_of_pfas,
-                    'Settlement Finalized': 'Yes' if company.settlement_finalized else 'No',
-                    'Settlement Amount': f"{company.settlement_currency} {company.settlement_amount:,.0f}" if company.settlement_amount else '',
-                    'Settlement Date': company.settlement_paid_date or ''
-                })
-            
-            return pd.DataFrame(data)
+            data.append({
+                'PK': str(company['pk']),
+                'Company Name': str(company['company_name']) if pd.notna(company['company_name']) else '',
+                'Litigation Reason': str(company['litigation_reason']) if pd.notna(company['litigation_reason']) else '',
+                'Claim Category': str(company['claim_category']) if pd.notna(company['claim_category']) else '',
+                'Source of PFAS': str(company['source_of_pfas']) if pd.notna(company['source_of_pfas']) else '',
+                'Settlement Finalized': 'Yes' if company['settlement_finalized'] else 'No',
+                'Settlement Amount': settlement_amount,
+                'Settlement Date': str(company['settlement_paid_date']) if pd.notna(company['settlement_paid_date']) else ''
+            })
+        
+        return pd.DataFrame(data)
     except Exception as e:
         logging.error(f"Error fetching companies: {str(e)}")
         return pd.DataFrame()
@@ -90,45 +101,44 @@ def get_companies(article_filter=None):
 def get_scatter_plot_data(company_filter=None, article_filter=None):
     """Get data for scatter plot showing articles published per week"""
     try:
-        with flask_app.app_context():
-            query = db.session.query(Article)
+        df = articles_df.copy()
+        
+        if company_filter:
+            company_pks = companies_df[
+                companies_df['company_name'].str.contains(company_filter, case=False, na=False)
+            ]['pk'].tolist()
             
-            if company_filter:
-                company_pks = db.session.query(Company.pk).filter(
-                    Company.company_name.ilike(f'%{company_filter}%')
-                ).all()
-                company_pk_list = [pk[0] for pk in company_pks]
-                if company_pk_list:
-                    query = query.filter(Article.pk.in_(company_pk_list))
-                else:
-                    return pd.DataFrame()
-            
-            if article_filter:
-                query = query.filter(Article.pk == article_filter)
-            
-            articles = query.all()
-            
-            data = []
-            for article in articles:
-                if article.published_at:
-                    # Get the start of the week (Monday)
-                    week_start = article.published_at - pd.Timedelta(days=article.published_at.weekday())
-                    data.append({
-                        'week': week_start.strftime('%Y-%m-%d'),
-                        'title': article.title,
-                        'published_date': article.published_at,
-                        'pk': article.pk
-                    })
-            
-            df = pd.DataFrame(data)
-            if not df.empty:
-                # Group by week and add vertical positioning for dots
-                df_grouped = df.groupby('week').apply(lambda x: x.assign(
-                    y_position=range(len(x))
-                )).reset_index(drop=True)
-                return df_grouped
-            
-            return pd.DataFrame()
+            if company_pks:
+                df = df[df['pk'].isin(company_pks)]
+            else:
+                return pd.DataFrame()
+        
+        if article_filter:
+            df = df[df['pk'] == article_filter]
+        
+        # Filter out rows with null published_at
+        df = df[pd.notna(df['published_at'])]
+        
+        data = []
+        for _, article in df.iterrows():
+            # Get the start of the week (Monday)
+            week_start = article['published_at'] - pd.Timedelta(days=article['published_at'].weekday())
+            data.append({
+                'week': week_start.strftime('%Y-%m-%d'),
+                'title': str(article['title']) if pd.notna(article['title']) else '',
+                'published_date': article['published_at'],
+                'pk': str(article['pk'])
+            })
+        
+        plot_df = pd.DataFrame(data)
+        if not plot_df.empty:
+            # Group by week and add vertical positioning for dots
+            plot_df_grouped = plot_df.groupby('week').apply(lambda x: x.assign(
+                y_position=range(len(x))
+            )).reset_index(drop=True)
+            return plot_df_grouped
+        
+        return pd.DataFrame()
     except Exception as e:
         logging.error(f"Error fetching scatter plot data: {str(e)}")
         return pd.DataFrame()
@@ -352,32 +362,32 @@ def update_dashboard(company_filter, selected_article_rows, selected_company_row
     # Get selected article PK
     selected_article_pk = None
     if selected_article_rows:
-        articles_df = get_articles(company_filter)
-        if not articles_df.empty and selected_article_rows[0] < len(articles_df):
-            selected_article_pk = articles_df.iloc[selected_article_rows[0]]['PK']
+        articles_data = get_articles(company_filter)
+        if not articles_data.empty and selected_article_rows[0] < len(articles_data):
+            selected_article_pk = articles_data.iloc[selected_article_rows[0]]['PK']
     
     # Get selected company PK  
     selected_company_pk = None
     if selected_company_rows:
-        companies_df = get_companies(selected_article_pk)
-        if not companies_df.empty and selected_company_rows[0] < len(companies_df):
-            selected_company_pk = companies_df.iloc[selected_company_rows[0]]['Company Name']
+        companies_data = get_companies(selected_article_pk)
+        if not companies_data.empty and selected_company_rows[0] < len(companies_data):
+            selected_company_pk = companies_data.iloc[selected_company_rows[0]]['Company Name']
     
     # Get filtered data
-    articles_df = get_articles(selected_company_pk if selected_company_pk else company_filter)
-    companies_df = get_companies(selected_article_pk)
-    scatter_df = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, selected_article_pk)
+    articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter)
+    companies_data = get_companies(selected_article_pk)
+    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, selected_article_pk)
     
     # Update articles table
-    articles_data = articles_df.to_dict('records') if not articles_df.empty else []
+    articles_records = articles_data.to_dict('records') if not articles_data.empty else []
     
     # Update companies table
-    companies_data = companies_df.to_dict('records') if not companies_df.empty else []
+    companies_records = companies_data.to_dict('records') if not companies_data.empty else []
     
     # Update scatter plot
-    if not scatter_df.empty:
+    if not scatter_data.empty:
         fig = px.scatter(
-            scatter_df, 
+            scatter_data, 
             x='week', 
             y='y_position',
             hover_data=['title', 'published_date'],
@@ -407,8 +417,8 @@ def update_dashboard(company_filter, selected_article_rows, selected_company_row
         )
     
     # Update counts
-    article_count = f"{len(articles_df)} articles"
-    company_count = f"{len(companies_df)} companies"
+    article_count = f"{len(articles_data)} articles"
+    company_count = f"{len(companies_data)} companies"
     
     # Update filter status
     filters = []
@@ -424,7 +434,7 @@ def update_dashboard(company_filter, selected_article_rows, selected_company_row
     else:
         filter_status = "No filters applied"
     
-    return (articles_data, companies_data, fig, article_count, company_count, 
+    return (articles_records, companies_records, fig, article_count, company_count, 
             filter_status, selected_article_pk or '', selected_company_pk or '')
 
 @app.callback(
