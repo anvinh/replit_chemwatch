@@ -182,7 +182,7 @@ app.layout = dbc.Container([
                         id='company-filter',
                         placeholder="Select company...",
                         style={
-                            'border': 'none',
+                            'border': '1',
                             'padding': '0',
                             'outline': 'none'
                         }
@@ -199,7 +199,7 @@ app.layout = dbc.Container([
                         id='industry-filter',
                         placeholder="Select industry...",
                         style={
-                            'border': 'none',
+                            'border': '1',
                             'padding': '0',
                             'outline': 'none'
                         }
