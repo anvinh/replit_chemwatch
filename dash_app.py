@@ -181,7 +181,11 @@ app.layout = dbc.Container([
                     dcc.Dropdown(
                         id='company-filter',
                         placeholder="Select company...",
-                        className="form-control"
+                        style={
+                            'border': 'none',
+                            'padding': '0',
+                            'outline': 'none'
+                        }
                     )
                 ], className="mb-4"),
                 
@@ -194,7 +198,11 @@ app.layout = dbc.Container([
                     dcc.Dropdown(
                         id='industry-filter',
                         placeholder="Select industry...",
-                        className="form-control"
+                        style={
+                            'border': 'none',
+                            'padding': '0',
+                            'outline': 'none'
+                        }
                     )
                 ], className="mb-4"),
 
