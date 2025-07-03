@@ -10,6 +10,8 @@ import pandas as pd
 from datetime import datetime
 import numpy as np
 
+from utils import log_callback_trigger
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -344,16 +346,18 @@ app.layout = dbc.Container([
      Output('filter-status', 'children'),
      Output('selected-article-pk', 'children'),
      Output('selected-company-pk', 'children')],
+
     [Input('company-filter', 'value'),
      Input('articles-table', 'selected_rows'),
      Input('companies-table', 'selected_rows'),
      Input('clear-filters', 'n_clicks')],
     prevent_initial_call=False
 )
+@log_callback_trigger
 def update_dashboard(company_filter, selected_article_rows, selected_company_rows, clear_clicks):
     ctx = callback_context
     
-    # Handle clear filters
+    # Handle clear filters: when only the button "clear filters" is clicked
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'clear-filters.n_clicks' and clear_clicks:
         company_filter = None
         selected_article_rows = []
@@ -437,15 +441,18 @@ def update_dashboard(company_filter, selected_article_rows, selected_company_row
     return (articles_records, companies_records, fig, article_count, company_count, 
             filter_status, selected_article_pk or '', selected_company_pk or '')
 
+
 @app.callback(
     [Output('company-filter', 'value')],
     [Input('clear-filters', 'n_clicks')]
 )
+@log_callback_trigger
 def clear_company_filter(n_clicks):
     ctx = callback_context
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'clear-filters.n_clicks' and n_clicks:
         return ['']
     return [dash.no_update]
 
+
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=5000, debug=True)
+    app.run( debug=True)
