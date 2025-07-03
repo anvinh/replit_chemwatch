@@ -1,4 +1,3 @@
-
 import os
 import logging
 import dash
@@ -24,25 +23,28 @@ articles_df['modified_at'] = pd.to_datetime(articles_df['modified_at'], errors='
 # Create Dash app with Bootstrap theme
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-def get_articles(company_filter=None):
+def get_articles(company_filter=None, industry_filter=None):
     """Get filtered articles from CSV data"""
     try:
         df = articles_df.copy()
-        
+
         if company_filter:
             # Find companies that match the filter and get their associated articles by pk
             company_pks = companies_df[
                 companies_df['company_name'].str.contains(company_filter, case=False, na=False)
             ]['pk'].tolist()
-            
+
             if company_pks:
                 df = df[df['pk'].isin(company_pks)]
             else:
                 return pd.DataFrame()  # No matching companies found
         
+        if industry_filter:
+            df = df[df['isic_name'] == industry_filter]
+
         # Sort by published date descending
         df = df.sort_values('published_at', ascending=False, na_position='last')
-        
+
         # Format data for display
         data = []
         for _, article in df.iterrows():
@@ -56,7 +58,7 @@ def get_articles(company_filter=None):
                 'Industry': str(article['isic_name']) if pd.notna(article['isic_name']) else '',
                 'Search Term': str(article['search_term']) if pd.notna(article['search_term']) else ''
             })
-        
+
         return pd.DataFrame(data)
     except Exception as e:
         logging.error(f"Error fetching articles: {str(e)}")
@@ -66,14 +68,14 @@ def get_companies(article_filter=None):
     """Get filtered companies from CSV data"""
     try:
         df = companies_df.copy()
-        
+
         if article_filter:
             # Filter companies based on article pk
             df = df[df['pk'] == article_filter]
-        
+
         # Sort by company name
         df = df.sort_values('company_name', na_position='last')
-        
+
         # Format data for display
         data = []
         for _, company in df.iterrows():
@@ -81,7 +83,7 @@ def get_companies(article_filter=None):
             if pd.notna(company['settlement_amount']):
                 currency = str(company['settlement_currency']) if pd.notna(company['settlement_currency']) else ''
                 settlement_amount = f"{currency} {company['settlement_amount']:,.0f}".strip()
-            
+
             data.append({
                 'PK': str(company['pk']),
                 'Company Name': str(company['company_name']) if pd.notna(company['company_name']) else '',
@@ -92,33 +94,36 @@ def get_companies(article_filter=None):
                 'Settlement Amount': settlement_amount,
                 'Settlement Date': str(company['settlement_paid_date']) if pd.notna(company['settlement_paid_date']) else ''
             })
-        
+
         return pd.DataFrame(data)
     except Exception as e:
         logging.error(f"Error fetching companies: {str(e)}")
         return pd.DataFrame()
 
-def get_scatter_plot_data(company_filter=None, article_filter=None):
+def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None):
     """Get data for scatter plot showing articles published per week"""
     try:
         df = articles_df.copy()
-        
+
         if company_filter:
             company_pks = companies_df[
                 companies_df['company_name'].str.contains(company_filter, case=False, na=False)
             ]['pk'].tolist()
-            
+
             if company_pks:
                 df = df[df['pk'].isin(company_pks)]
             else:
                 return pd.DataFrame()
         
+        if industry_filter:
+            df = df[df['isic_name'] == industry_filter]
+
         if article_filter:
             df = df[df['pk'] == article_filter]
-        
+
         # Filter out rows with null published_at
         df = df[pd.notna(df['published_at'])]
-        
+
         data = []
         for _, article in df.iterrows():
             # Get the start of the week (Monday)
@@ -129,7 +134,7 @@ def get_scatter_plot_data(company_filter=None, article_filter=None):
                 'published_date': article['published_at'],
                 'pk': str(article['pk'])
             })
-        
+
         plot_df = pd.DataFrame(data)
         if not plot_df.empty:
             # Group by week and add vertical positioning for dots
@@ -137,11 +142,23 @@ def get_scatter_plot_data(company_filter=None, article_filter=None):
                 y_position=range(len(x))
             )).reset_index(drop=True)
             return plot_df_grouped
-        
+
         return pd.DataFrame()
     except Exception as e:
         logging.error(f"Error fetching scatter plot data: {str(e)}")
         return pd.DataFrame()
+
+def get_company_options():
+    """Get options for company dropdown"""
+    company_names = companies_df['company_name'].unique()
+    options = [{'label': company, 'value': company} for company in company_names]
+    return options
+
+def get_industry_options():
+    """Get options for industry dropdown"""
+    industry_names = articles_df['isic_name'].unique()
+    options = [{'label': industry, 'value': industry} for industry in industry_names]
+    return options
 
 # App layout
 app.layout = dbc.Container([
@@ -153,32 +170,44 @@ app.layout = dbc.Container([
                     html.I(className="fas fa-filter me-2"),
                     "Filters"
                 ], className="mb-4"),
-                
+
                 # Company Filter
                 html.Div([
                     dbc.Label([
                         html.I(className="fas fa-building me-1"),
                         "Company Filter"
                     ]),
-                    dcc.Input(
+                    dcc.Dropdown(
                         id='company-filter',
-                        type='text',
-                        placeholder="Enter company name...",
+                        placeholder="Select company...",
                         className="form-control"
                     )
                 ], className="mb-4"),
                 
+                # Industry Filter
+                html.Div([
+                    dbc.Label([
+                        html.I(className="fas fa-industry me-1"),
+                        "Industry Filter"
+                    ]),
+                    dcc.Dropdown(
+                        id='industry-filter',
+                        placeholder="Select industry...",
+                        className="form-control"
+                    )
+                ], className="mb-4"),
+
                 # Clear Filters Button
                 dbc.Button([
                     html.I(className="fas fa-eraser me-1"),
                     "Clear Filters"
                 ], id="clear-filters", color="outline-secondary", className="w-100 mb-3"),
-                
+
                 # Filter Status
                 html.Div(id="filter-status", className="text-muted small")
             ], className="p-3 bg-light")
         ], width=3, className="vh-100 position-fixed"),
-        
+
         # Main Content
         dbc.Col([
             # Header
@@ -190,7 +219,7 @@ app.layout = dbc.Container([
                 html.P("Monitor and analyze PFAS-related articles and company involvement", 
                       className="text-muted")
             ], className="mb-4"),
-            
+
             # Scatter Plot Chart
             dbc.Card([
                 dbc.CardHeader([
@@ -203,7 +232,7 @@ app.layout = dbc.Container([
                     dcc.Graph(id="scatter-plot-chart")
                 ])
             ], className="mb-4"),
-            
+
             # Articles Table
             dbc.Card([
                 dbc.CardHeader([
@@ -265,7 +294,7 @@ app.layout = dbc.Container([
                     )
                 ])
             ], className="mb-4"),
-            
+
             # Companies Table
             dbc.Card([
                 dbc.CardHeader([
@@ -328,11 +357,22 @@ app.layout = dbc.Container([
             ])
         ], width=9, className="ms-auto")
     ]),
-    
+
     # Hidden div to store selected article PK
     html.Div(id="selected-article-pk", style={'display': 'none'}),
     html.Div(id="selected-company-pk", style={'display': 'none'})
 ], fluid=True)
+
+# Define a decorator for logging callback trigger
+def log_callback_trigger(func):
+    def wrapper(*args, **kwargs):
+        ctx = callback_context
+        if ctx.triggered:
+            logging.debug(f"Callback triggered by: {ctx.triggered[0]['prop_id']}")
+        else:
+            logging.debug("Callback triggered without explicit input")
+        return func(*args, **kwargs)
+    return wrapper
 
 # Callbacks
 @app.callback(
@@ -343,47 +383,57 @@ app.layout = dbc.Container([
      Output('company-count', 'children'),
      Output('filter-status', 'children'),
      Output('selected-article-pk', 'children'),
-     Output('selected-company-pk', 'children')],
+     Output('selected-company-pk', 'children'),
+     Output('company-filter', 'options'),
+     Output('industry-filter', 'options')],
+
     [Input('company-filter', 'value'),
+     Input('industry-filter', 'value'),
      Input('articles-table', 'selected_rows'),
      Input('companies-table', 'selected_rows'),
      Input('clear-filters', 'n_clicks')],
     prevent_initial_call=False
 )
-def update_dashboard(company_filter, selected_article_rows, selected_company_rows, clear_clicks):
+@log_callback_trigger
+def update_dashboard(company_filter, industry_filter, selected_article_rows, selected_company_rows, clear_clicks):
     ctx = callback_context
-    
-    # Handle clear filters
+
+    # Handle clear filters: when only the button "clear filters" is clicked
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'clear-filters.n_clicks' and clear_clicks:
         company_filter = None
+        industry_filter = None
         selected_article_rows = []
         selected_company_rows = []
-    
+
+    # Get dropdown options
+    company_options = get_company_options()
+    industry_options = get_industry_options()
+
     # Get selected article PK
     selected_article_pk = None
     if selected_article_rows:
-        articles_data = get_articles(company_filter)
+        articles_data = get_articles(company_filter, industry_filter)
         if not articles_data.empty and selected_article_rows[0] < len(articles_data):
             selected_article_pk = articles_data.iloc[selected_article_rows[0]]['PK']
-    
+
     # Get selected company PK  
     selected_company_pk = None
     if selected_company_rows:
         companies_data = get_companies(selected_article_pk)
         if not companies_data.empty and selected_company_rows[0] < len(companies_data):
             selected_company_pk = companies_data.iloc[selected_company_rows[0]]['Company Name']
-    
+
     # Get filtered data
-    articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter)
+    articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter, industry_filter)
     companies_data = get_companies(selected_article_pk)
-    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, selected_article_pk)
-    
+    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk)
+
     # Update articles table
     articles_records = articles_data.to_dict('records') if not articles_data.empty else []
-    
+
     # Update companies table
     companies_records = companies_data.to_dict('records') if not companies_data.empty else []
-    
+
     # Update scatter plot
     if not scatter_data.empty:
         fig = px.scatter(
@@ -415,37 +465,42 @@ def update_dashboard(company_filter, selected_article_rows, selected_company_row
             xaxis=dict(visible=False),
             yaxis=dict(visible=False)
         )
-    
+
     # Update counts
     article_count = f"{len(articles_data)} articles"
     company_count = f"{len(companies_data)} companies"
-    
+
     # Update filter status
     filters = []
     if company_filter:
         filters.append(f"Company: {company_filter}")
+    if industry_filter:
+        filters.append(f"Industry: {industry_filter}")
     if selected_article_pk:
         filters.append(f"Article selected")
     if selected_company_pk:
         filters.append(f"Company: {selected_company_pk}")
-    
+
     if filters:
         filter_status = f"Active filters: {', '.join(filters)}"
     else:
         filter_status = "No filters applied"
-    
+
     return (articles_records, companies_records, fig, article_count, company_count, 
-            filter_status, selected_article_pk or '', selected_company_pk or '')
+            filter_status, selected_article_pk or '', selected_company_pk or '',
+            company_options, industry_options)
 
 @app.callback(
-    [Output('company-filter', 'value')],
+    [Output('company-filter', 'value'),
+     Output('industry-filter', 'value')],
     [Input('clear-filters', 'n_clicks')]
 )
-def clear_company_filter(n_clicks):
+@log_callback_trigger
+def clear_filters(n_clicks):
     ctx = callback_context
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'clear-filters.n_clicks' and n_clicks:
-        return ['']
-    return [dash.no_update]
+        return [None, None]
+    return [dash.no_update, dash.no_update]
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=True)
