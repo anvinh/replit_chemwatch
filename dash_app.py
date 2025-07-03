@@ -452,7 +452,14 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             xaxis_title="Week Starting",
             yaxis_title="Articles in Week",
             yaxis=dict(tickmode='linear', dtick=1),
-            hovermode='closest'
+            hovermode='closest',
+            xaxis=dict(
+                rangeslider=dict(
+                    visible=True,
+                    thickness=0.1
+                ),
+                type="date"
+            )
         )
     else:
         fig = go.Figure()
