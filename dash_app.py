@@ -1,4 +1,4 @@
-
+# Refactored scatter plot data processing and updated plot to display individual articles stacked vertically.
 import os
 import logging
 import dash
@@ -39,7 +39,7 @@ def get_articles(company_filter=None, industry_filter=None):
                 df = df[df['pk'].isin(company_pks)]
             else:
                 return pd.DataFrame()  # No matching companies found
-        
+
         if industry_filter:
             df = df[df['isic_name'] == industry_filter]
 
@@ -115,7 +115,7 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
                 df = df[df['pk'].isin(company_pks)]
             else:
                 return pd.DataFrame()
-        
+
         if industry_filter:
             df = df[df['isic_name'] == industry_filter]
 
@@ -135,7 +135,7 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
                 # Get the start of the month
                 period_start = article['published_at'].replace(day=1)
                 period_key = period_start.strftime('%Y-%m-%d')
-            
+
             data.append({
                 'period': period_key,
                 'title': str(article['title']) if pd.notna(article['title']) else '',
@@ -145,8 +145,8 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 
         plot_df = pd.DataFrame(data)
         if not plot_df.empty:
-            # Group by period and add vertical positioning for dots
-            plot_df_grouped = plot_df.groupby('period').apply(lambda x: x.assign(
+            # Group by period and add vertical positioning for dots (starting from 0)
+            plot_df_grouped = plot_df.groupby('period').apply(lambda x: x.sort_values('published_date').assign(
                 y_position=range(len(x))
             ), include_groups=False).reset_index()
             return plot_df_grouped
@@ -195,7 +195,7 @@ app.layout = dbc.Container([
                         }
                     )
                 ], className="mb-4"),
-                
+
                 # Industry Filter
                 html.Div([
                     dbc.Label([
@@ -411,14 +411,14 @@ def update_aggregation_type(weekly_clicks, monthly_clicks):
     ctx = callback_context
     if not ctx.triggered:
         return "monthly", "outline-primary", "primary"
-    
+
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
+
     if button_id == 'weekly-btn':
         return "weekly", "primary", "outline-primary"
     elif button_id == 'monthly-btn':
         return "monthly", "outline-primary", "primary"
-    
+
     return "monthly", "outline-primary", "primary"
 
 # Main dashboard callback
@@ -560,4 +560,3 @@ def clear_filters(n_clicks):
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=True)
-    
