@@ -510,6 +510,12 @@ def update_dashboard(company_filter, industry_filter, start_date, end_date, sele
         selected_article_rows = []
         selected_company_rows = []
 
+    # Ensure default date filters are applied on initial load
+    if not start_date:
+        start_date = (datetime.now() - pd.DateOffset(years=2)).date()
+    if not end_date:
+        end_date = datetime.now().date()
+
     # Get dropdown options
     company_options = get_company_options()
     industry_options = get_industry_options()
