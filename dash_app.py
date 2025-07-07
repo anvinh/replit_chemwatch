@@ -384,7 +384,7 @@ app.layout = dbc.Container([
     html.Div(id="selected-article-pk", style={'display': 'none'}),
     html.Div(id="selected-company-pk", style={'display': 'none'}),
     # Hidden div to store aggregation type
-    html.Div(id="aggregation-type", children="weekly", style={'display': 'none'})
+    html.Div(id="aggregation-type", children="monthly", style={'display': 'none'})
 ], fluid=True)
 
 # Define a decorator for logging callback trigger
@@ -410,7 +410,7 @@ def log_callback_trigger(func):
 def update_aggregation_type(weekly_clicks, monthly_clicks):
     ctx = callback_context
     if not ctx.triggered:
-        return "weekly", "primary", "outline-primary"
+        return "monthly", "outline-primary", "primary"
     
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
@@ -419,7 +419,7 @@ def update_aggregation_type(weekly_clicks, monthly_clicks):
     elif button_id == 'monthly-btn':
         return "monthly", "outline-primary", "primary"
     
-    return "monthly", "primary", "outline-primary"
+    return "monthly", "outline-primary", "primary"
 
 # Main dashboard callback
 @app.callback(
