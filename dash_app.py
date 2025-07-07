@@ -45,12 +45,12 @@ def get_articles(company_filter=None, industry_filter=None, start_date=None, end
 
         # Apply date filters
         if start_date:
-            start_date = pd.to_datetime(start_date)
-            df = df[df['published_at'] >= start_date]
-        
+            start_date = pd.to_datetime(start_date).tz_localize(None)
+            df = df[df['published_at'].dt.tz_localize(None) >= start_date]
+
         if end_date:
-            end_date = pd.to_datetime(end_date) + pd.Timedelta(days=1)  # Include the end date
-            df = df[df['published_at'] < end_date]
+            end_date = pd.to_datetime(end_date).tz_localize(None) + pd.Timedelta(days=1)  # Include the end date
+            df = df[df['published_at'].dt.tz_localize(None) < end_date]
 
         # Sort by published date descending
         df = df.sort_values('published_at', ascending=False, na_position='last')
@@ -133,12 +133,12 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 
         # Apply date filters
         if start_date:
-            start_date = pd.to_datetime(start_date)
-            df = df[df['published_at'] >= start_date]
-        
+            start_date = pd.to_datetime(start_date).tz_localize(None)
+            df = df[df['published_at'].dt.tz_localize(None) >= start_date]
+
         if end_date:
-            end_date = pd.to_datetime(end_date) + pd.Timedelta(days=1)  # Include the end date
-            df = df[df['published_at'] < end_date]
+            end_date = pd.to_datetime(end_date).tz_localize(None) + pd.Timedelta(days=1)  # Include the end date
+            df = df[df['published_at'].dt.tz_localize(None) < end_date]
 
         # Filter out rows with null published_at
         df = df[pd.notna(df['published_at'])]
