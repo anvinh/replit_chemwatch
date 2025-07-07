@@ -211,11 +211,6 @@ app.layout = dbc.Container([
                             display_format='YYYY-MM-DD',
                             style={
                                 'width': '100%',
-                                'height': '38px',
-                                'border-radius': '0.375rem',
-                                'border': '1px solid #ced4da',
-                                'font-size': '1rem',
-                                'padding': '0.375rem 0.75rem'
                             }
                         )
                     ], className="mb-3"),
