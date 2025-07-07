@@ -101,8 +101,8 @@ def get_companies(article_filter=None):
         logging.error(f"Error fetching companies: {str(e)}")
         return pd.DataFrame()
 
-def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None):
-    """Get data for scatter plot showing articles published per week"""
+def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly"):
+    """Get data for scatter plot showing articles published per week or month"""
     try:
         df = articles_df.copy()
 
@@ -127,10 +127,17 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 
         data = []
         for _, article in df.iterrows():
-            # Get the start of the week (Monday)
-            week_start = article['published_at'] - pd.Timedelta(days=article['published_at'].weekday())
+            if aggregation_type == "weekly":
+                # Get the start of the week (Monday)
+                period_start = article['published_at'] - pd.Timedelta(days=article['published_at'].weekday())
+                period_key = period_start.strftime('%Y-%m-%d')
+            else:  # monthly
+                # Get the start of the month
+                period_start = article['published_at'].replace(day=1)
+                period_key = period_start.strftime('%Y-%m-%d')
+            
             data.append({
-                'week': week_start.strftime('%Y-%m-%d'),
+                'period': period_key,
                 'title': str(article['title']) if pd.notna(article['title']) else '',
                 'published_date': article['published_at'],
                 'pk': str(article['pk'])
@@ -138,10 +145,10 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 
         plot_df = pd.DataFrame(data)
         if not plot_df.empty:
-            # Group by week and add vertical positioning for dots
-            plot_df_grouped = plot_df.groupby('week').apply(lambda x: x.assign(
+            # Group by period and add vertical positioning for dots
+            plot_df_grouped = plot_df.groupby('period').apply(lambda x: x.assign(
                 y_position=range(len(x))
-            )).reset_index(drop=True)
+            ), include_groups=False).reset_index()
             return plot_df_grouped
 
         return pd.DataFrame()
@@ -234,11 +241,17 @@ app.layout = dbc.Container([
                 dbc.CardHeader([
                     html.H5([
                         html.I(className="fas fa-chart-scatter me-2"),
-                        "Articles Published by Week"
+                        "Articles Published by Time Period"
                     ], className="mb-0")
                 ]),
                 dbc.CardBody([
-                    dcc.Graph(id="scatter-plot-chart")
+                    dcc.Graph(id="scatter-plot-chart"),
+                    html.Div([
+                        dbc.ButtonGroup([
+                            dbc.Button("Weekly", id="weekly-btn", color="primary", className="me-2"),
+                            dbc.Button("Monthly", id="monthly-btn", color="outline-primary")
+                        ], className="d-flex justify-content-center mt-3")
+                    ])
                 ])
             ], className="mb-4"),
 
@@ -369,7 +382,9 @@ app.layout = dbc.Container([
 
     # Hidden div to store selected article PK
     html.Div(id="selected-article-pk", style={'display': 'none'}),
-    html.Div(id="selected-company-pk", style={'display': 'none'})
+    html.Div(id="selected-company-pk", style={'display': 'none'}),
+    # Hidden div to store aggregation type
+    html.Div(id="aggregation-type", children="weekly", style={'display': 'none'})
 ], fluid=True)
 
 # Define a decorator for logging callback trigger
@@ -383,7 +398,30 @@ def log_callback_trigger(func):
         return func(*args, **kwargs)
     return wrapper
 
-# Callbacks
+# Callback for aggregation buttons
+@app.callback(
+    [Output('aggregation-type', 'children'),
+     Output('weekly-btn', 'color'),
+     Output('monthly-btn', 'color')],
+    [Input('weekly-btn', 'n_clicks'),
+     Input('monthly-btn', 'n_clicks')],
+    prevent_initial_call=False
+)
+def update_aggregation_type(weekly_clicks, monthly_clicks):
+    ctx = callback_context
+    if not ctx.triggered:
+        return "weekly", "primary", "outline-primary"
+    
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if button_id == 'weekly-btn':
+        return "weekly", "primary", "outline-primary"
+    elif button_id == 'monthly-btn':
+        return "monthly", "outline-primary", "primary"
+    
+    return "weekly", "primary", "outline-primary"
+
+# Main dashboard callback
 @app.callback(
     [Output('articles-table', 'data'),
      Output('companies-table', 'data'),
@@ -400,11 +438,12 @@ def log_callback_trigger(func):
      Input('industry-filter', 'value'),
      Input('articles-table', 'selected_rows'),
      Input('companies-table', 'selected_rows'),
-     Input('clear-filters', 'n_clicks')],
+     Input('clear-filters', 'n_clicks'),
+     Input('aggregation-type', 'children')],
     prevent_initial_call=False
 )
 @log_callback_trigger
-def update_dashboard(company_filter, industry_filter, selected_article_rows, selected_company_rows, clear_clicks):
+def update_dashboard(company_filter, industry_filter, selected_article_rows, selected_company_rows, clear_clicks, aggregation_type):
     ctx = callback_context
 
     # Handle clear filters: when only the button "clear filters" is clicked
@@ -435,7 +474,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     # Get filtered data
     articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter, industry_filter)
     companies_data = get_companies(selected_article_pk)
-    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk)
+    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk, aggregation_type)
 
     # Update articles table
     articles_records = articles_data.to_dict('records') if not articles_data.empty else []
@@ -445,20 +484,21 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
 
     # Update scatter plot
     if not scatter_data.empty:
+        period_label = "Week" if aggregation_type == "weekly" else "Month"
         fig = px.scatter(
             scatter_data, 
-            x='week', 
+            x='period', 
             y='y_position',
             hover_data=['title', 'published_date'],
-            title='Articles Published by Week (Each dot represents one article)'
+            title=f'Articles Published by {period_label} (Each dot represents one article)'
         )
         fig.update_traces(
             marker=dict(size=8, opacity=0.7),
-            hovertemplate='<b>%{customdata[0]}</b><br>Published: %{customdata[1]}<br>Week: %{x}<extra></extra>'
+            hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[1]}}<br>{period_label}: %{{x}}<extra></extra>'
         )
         fig.update_layout(
-            xaxis_title="Week Starting",
-            yaxis_title="Articles in Week",
+            xaxis_title=f"{period_label} Starting",
+            yaxis_title=f"Articles in {period_label}",
             yaxis=dict(tickmode='linear', dtick=1),
             hovermode='closest',
             xaxis=dict(
