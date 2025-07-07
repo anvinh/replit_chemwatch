@@ -419,7 +419,7 @@ def update_aggregation_type(weekly_clicks, monthly_clicks):
     elif button_id == 'monthly-btn':
         return "monthly", "outline-primary", "primary"
     
-    return "weekly", "primary", "outline-primary"
+    return "monthly", "primary", "outline-primary"
 
 # Main dashboard callback
 @app.callback(
