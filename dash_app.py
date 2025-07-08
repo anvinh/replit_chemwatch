@@ -211,6 +211,11 @@ app.layout = dbc.Container([
                             display_format='YYYY-MM-DD',
                             style={
                                 'width': '100%',
+                                'height': '38px',
+                                'border-radius': '0.375rem',
+                                'border': '1px solid #ced4da',
+                                'font-size': '1rem',
+                                'padding': '0.375rem 0.75rem'
                             }
                         )
                     ], className="mb-3"),
@@ -509,12 +514,6 @@ def update_dashboard(company_filter, industry_filter, start_date, end_date, sele
         end_date = datetime.now().date()
         selected_article_rows = []
         selected_company_rows = []
-
-    # Ensure default date filters are applied on initial load
-    if not start_date:
-        start_date = (datetime.now() - pd.DateOffset(years=2)).date()
-    if not end_date:
-        end_date = datetime.now().date()
 
     # Get dropdown options
     company_options = get_company_options()
