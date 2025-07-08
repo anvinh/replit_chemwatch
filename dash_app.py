@@ -307,7 +307,9 @@ app.layout = dbc.Container([
                             dbc.Button("Monthly", id="monthly-btn", color="primary", className="me-2"),
                             dbc.Button("Quarterly", id="quarterly-btn", color="outline-primary")
                         ], className="d-flex justify-content-center mt-3")
-                    ])
+                    ]),
+                    # Article info box
+                    html.Div(id="article-info-box", className="mt-3")
                 ])
             ], className="mb-4"),
 
@@ -563,7 +565,8 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         )
         fig.update_traces(
             marker=dict(size=8, opacity=0.7),
-            hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[1]}}<br>{period_label}: %{{x}}<extra></extra>'
+            hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[1]}}<br>{period_label}: %{{x}}<extra></extra>',
+            customdata=scatter_data[['title', 'published_date', 'pk', 'url']].values
         )
 
         # Calculate data-driven range slider bounds
@@ -697,6 +700,109 @@ def clear_filters(n_clicks):
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'clear-filters.n_clicks' and n_clicks:
         return [None, None]
     return [dash.no_update, dash.no_update]
+
+# Callback for handling click events on scatter plot
+@app.callback(
+    Output('article-info-box', 'children'),
+    [Input('scatter-plot-chart', 'clickData'),
+     Input('aggregation-type', 'children'),
+     Input('company-filter', 'value'),
+     Input('industry-filter', 'value'),
+     Input('start-date-filter', 'date'),
+     Input('end-date-filter', 'date')],
+    prevent_initial_call=True
+)
+@log_callback_trigger
+def display_article_info(click_data, aggregation_type, company_filter, industry_filter, start_date, end_date):
+    ctx = callback_context
+    
+    # Only process if click data triggered the callback
+    if not ctx.triggered or ctx.triggered[0]['prop_id'] != 'scatter-plot-chart.clickData':
+        return html.Div()
+    
+    if not click_data:
+        return html.Div()
+    
+    try:
+        # Get the clicked point data
+        point = click_data['points'][0]
+        custom_data = point['customdata']
+        
+        title = custom_data[0]
+        published_date = custom_data[1]
+        pk = custom_data[2]
+        url = custom_data[3]
+        
+        # Find the full article data
+        scatter_data = get_scatter_plot_data(company_filter, industry_filter, None, aggregation_type)
+        
+        # Apply date filtering if needed
+        if start_date and end_date and not scatter_data.empty:
+            start_datetime = pd.to_datetime(start_date).tz_localize('UTC')
+            end_datetime = pd.to_datetime(end_date).tz_localize('UTC') + pd.Timedelta(days=1)
+            scatter_data = scatter_data[
+                (scatter_data['published_date'] >= start_datetime) & 
+                (scatter_data['published_date'] < end_datetime)
+            ]
+        
+        # Find the specific article
+        article_data = scatter_data[scatter_data['pk'] == pk]
+        
+        if article_data.empty:
+            return html.Div()
+        
+        article = article_data.iloc[0]
+        
+        # Create info box content
+        info_box = dbc.Card([
+            dbc.CardHeader([
+                html.H6([
+                    html.I(className="fas fa-info-circle me-2"),
+                    "Article Details"
+                ], className="mb-0")
+            ]),
+            dbc.CardBody([
+                html.H6(title, className="card-title"),
+                html.P([
+                    html.Strong("Published: "),
+                    pd.to_datetime(published_date).strftime('%Y-%m-%d %H:%M')
+                ], className="mb-2"),
+                html.P([
+                    html.Strong("Article ID: "),
+                    pk
+                ], className="mb-2"),
+                html.Div([
+                    html.A(
+                        [html.I(className="fas fa-external-link-alt me-2"), "Read Full Article"],
+                        href=url,
+                        target="_blank",
+                        className="btn btn-primary btn-sm"
+                    )
+                ], className="mt-3") if url and url != 'nan' else html.Div()
+            ])
+        ], className="border-primary", style={"border-width": "2px"})
+        
+        return info_box
+        
+    except Exception as e:
+        logging.error(f"Error displaying article info: {str(e)}")
+        return html.Div([
+            dbc.Alert("Error loading article information", color="danger")
+        ])
+
+# Add a separate callback to clear the info box when filters change
+@app.callback(
+    Output('article-info-box', 'children', allow_duplicate=True),
+    [Input('company-filter', 'value'),
+     Input('industry-filter', 'value'),
+     Input('start-date-filter', 'date'),
+     Input('end-date-filter', 'date'),
+     Input('aggregation-type', 'children')],
+    prevent_initial_call=True
+)
+@log_callback_trigger
+def clear_article_info_on_filter_change(company_filter, industry_filter, start_date, end_date, aggregation_type):
+    return html.Div()
 
 
 if __name__ == '__main__':
