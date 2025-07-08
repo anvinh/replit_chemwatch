@@ -102,7 +102,7 @@ def get_companies(article_filter=None):
         logging.error(f"Error fetching companies: {str(e)}")
         return pd.DataFrame()
 
-def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly"):
+def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly", start_date=None, end_date=None):
     """Get data for scatter plot showing articles published per week or month"""
     try:
         df = articles_df.copy()
@@ -125,6 +125,15 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 
         # Filter out rows with null published_at
         df = df[pd.notna(df['published_at'])]
+
+        # Apply date range filtering
+        if start_date:
+            start_date = pd.to_datetime(start_date)
+            df = df[df['published_at'] >= start_date]
+        
+        if end_date:
+            end_date = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)  # Include the entire end date
+            df = df[df['published_at'] <= end_date]
 
         data = []
         for _, article in df.iterrows():
@@ -529,7 +538,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     # Get filtered data
     articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter, industry_filter)
     companies_data = get_companies(selected_article_pk)
-    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk, aggregation_type)
+    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk, aggregation_type, start_date, end_date)
 
     # Update articles table
     articles_records = articles_data.to_dict('records') if not articles_data.empty else []
@@ -557,6 +566,15 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             marker=dict(size=8, opacity=0.7),
             hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[1]}}<br>{period_label}: %{{x}}<extra></extra>'
         )
+        # Calculate range slider bounds based on data and filters
+        if start_date and end_date:
+            range_start = pd.to_datetime(start_date)
+            range_end = pd.to_datetime(end_date)
+        else:
+            # Fallback to data bounds if no filters are set
+            range_start = scatter_data['published_date'].min()
+            range_end = scatter_data['published_date'].max()
+
         fig.update_layout(
             xaxis_title=f"{period_label} Starting",
             yaxis_title=f"Articles in {period_label}",
@@ -565,7 +583,8 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             xaxis=dict(
                 rangeslider=dict(
                     visible=True,
-                    thickness=0.1
+                    thickness=0.1,
+                    range=[range_start, range_end]
                 ),
                 type="date"
             )
