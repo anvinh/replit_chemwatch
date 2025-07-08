@@ -1,4 +1,4 @@
-# Refactored scatter plot data processing and updated plot to display individual articles stacked vertically.
+# Refactored scatter plot data processing and updated plot to display individual articles stacked vertically with dynamic range slider configuration.
 import os
 import logging
 import dash
@@ -537,6 +537,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     # Update companies table
     companies_records = companies_data.to_dict('records') if not companies_data.empty else []
 
+    # This code introduces dynamic range slider configuration with data-driven min/max values, 2-year pre-selected range, and enhanced user interaction features.
     # Update scatter plot
     if not scatter_data.empty:
         if aggregation_type == "weekly":
@@ -545,7 +546,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             period_label = "Quarter"
         else:
             period_label = "Month"
-        
+
         fig = px.scatter(
             scatter_data, 
             x='period', 
@@ -557,17 +558,58 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             marker=dict(size=8, opacity=0.7),
             hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[1]}}<br>{period_label}: %{{x}}<extra></extra>'
         )
+
+        # Calculate data-driven range slider bounds
+        data_min_date = scatter_data['published_date'].min()
+        data_max_date = scatter_data['published_date'].max()
+
+        # Set pre-selected range to last 2 years from data max date
+        two_years_ago = data_max_date - pd.DateOffset(years=2)
+        preselected_start = max(two_years_ago, data_min_date)  # Don't go before data starts
+        preselected_end = data_max_date
+
+        # Configure range slider with custom settings
         fig.update_layout(
             xaxis_title=f"{period_label} Starting",
             yaxis_title=f"Articles in {period_label}",
             yaxis=dict(tickmode='linear', dtick=1),
             hovermode='closest',
             xaxis=dict(
+                type="date",
+                range=[preselected_start, preselected_end],  # Pre-selected range (last 2 years)
                 rangeslider=dict(
                     visible=True,
-                    thickness=0.1
+                    thickness=0.15,  # Slightly thicker for better visibility
+                    bgcolor="rgba(0,0,0,0.1)",  # Light background
+                    borderwidth=1,
+                    bordercolor="rgb(204,204,204)",
+                    range=[data_min_date, data_max_date],  # Full data range in slider
+                    yaxis=dict(rangemode="fixed")  # Keep y-axis fixed when sliding
                 ),
-                type="date"
+                # Add range buttons for quick navigation
+                rangeselector=dict(
+                    buttons=list([
+                        dict(count=3, label="3M", step="month", stepmode="backward"),
+                        dict(count=6, label="6M", step="month", stepmode="backward"),
+                        dict(count=1, label="1Y", step="year", stepmode="backward"),
+                        dict(count=2, label="2Y", step="year", stepmode="backward"),
+                        dict(step="all", label="All")
+                    ]),
+                    bgcolor="rgba(0,0,0,0.1)",
+                    bordercolor="rgb(204,204,204)",
+                    borderwidth=1,
+                    font=dict(size=12),
+                    x=0.01,
+                    y=0.99,
+                    xanchor="left",
+                    yanchor="top"
+                )
+            ),
+            # Add title with data range info
+            title=dict(
+                text=f'{period_label}ly Articles Published<br><sub>Data Range: {data_min_date.strftime("%Y-%m-%d")} to {data_max_date.strftime("%Y-%m-%d")} | Showing: {preselected_start.strftime("%Y-%m-%d")} to {preselected_end.strftime("%Y-%m-%d")}</sub>',
+                x=0.5,
+                font=dict(size=16)
             )
         )
     else:
