@@ -548,8 +548,8 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     
     # Apply date filtering to scatter data if dates are provided
     if start_date and end_date and not scatter_data.empty:
-        start_datetime = pd.to_datetime(start_date)
-        end_datetime = pd.to_datetime(end_date) + pd.Timedelta(days=1)  # Include end date
+        start_datetime = pd.to_datetime(start_date).tz_localize('UTC')
+        end_datetime = pd.to_datetime(end_date).tz_localize('UTC') + pd.Timedelta(days=1)  # Include end date
         scatter_data = scatter_data[
             (scatter_data['published_date'] >= start_datetime) & 
             (scatter_data['published_date'] < end_datetime)
