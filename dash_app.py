@@ -136,17 +136,18 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
                 # Get the start of the quarter
                 quarter = (article['published_at'].month - 1) // 3 + 1
                 period_start = pd.Timestamp(year=article['published_at'].year, month=(quarter-1)*3+1, day=1)
-                period_key = period_start.strftime('%Y-%m-%d')
+                period_key = period_start.strftime('%Y-%m')
             else:  # monthly
                 # Get the start of the month
                 period_start = article['published_at'].replace(day=1)
-                period_key = period_start.strftime('%Y-%m-%d')
+                period_key = period_start.strftime('%Y-%m')
 
             data.append({
                 'period': period_key,
                 'title': str(article['title']) if pd.notna(article['title']) else '',
                 'published_date': article['published_at'],
-                'pk': str(article['pk'])
+                'pk': str(article['pk']),
+                'url': article['url'],
             })
 
         plot_df = pd.DataFrame(data)
@@ -180,6 +181,15 @@ app.layout = dbc.Container([
         # Sidebar
         dbc.Col([
             html.Div([
+                # Header
+                html.Div([
+                    html.H1(
+                        "ChemWatch"
+                    , className="display-6"),
+                    html.P("a HERCULES spin-off",
+                          className="text-muted")
+                ], className="mb-4", style={'border-bottom': '1px solid #dee2e6'}),
+
                 html.H4([
                     html.I(className="fas fa-filter me-2"),
                     "Filters"
@@ -229,10 +239,9 @@ app.layout = dbc.Container([
 
                 # Company Filter
                 html.Div([
-                    dbc.Label([
-                        html.I(className="fas fa-building me-1"),
+                    dbc.Label(
                         "Company Filter"
-                    ]),
+                    ),
                     dcc.Dropdown(
                         id='company-filter',
                         placeholder="Select company...",
@@ -246,10 +255,9 @@ app.layout = dbc.Container([
 
                 # Industry Filter
                 html.Div([
-                    dbc.Label([
-                        html.I(className="fas fa-industry me-1"),
+                    dbc.Label(
                         "Industry Filter"
-                    ]),
+                    ),
                     dcc.Dropdown(
                         id='industry-filter',
                         placeholder="Select industry...",
@@ -262,10 +270,9 @@ app.layout = dbc.Container([
                 ], className="mb-4"),
 
                 # Clear Filters Button
-                dbc.Button([
-                    html.I(className="fas fa-eraser me-1"),
+                dbc.Button(
                     "Clear Filters"
-                ], id="clear-filters", color="outline-secondary", className="w-100 mb-3"),
+                , id="clear-filters", color="outline-secondary", className="w-100 mb-3"),
 
                 # Filter Status
                 html.Div(id="filter-status", className="text-muted small")
@@ -275,14 +282,14 @@ app.layout = dbc.Container([
         # Main Content
         dbc.Col([
             # Header
-            html.Div([
-                html.H1([
-                    html.I(className="fas fa-newspaper me-2"),
-                    "PFAS Articles & Companies Dashboard"
-                ], className="display-6"),
-                html.P("Monitor and analyze PFAS-related articles and company involvement", 
-                      className="text-muted")
-            ], className="mb-4"),
+            #html.Div(
+                html.Div([
+                    html.H1("PFAS Articles & Companies Dashboard"
+                    , className="display-6"),
+                    html.P("Monitor and analyze PFAS-related articles and company involvement",
+                          className="text-muted")
+                ], className="my-16 bg-light"),
+            #),
 
             # Scatter Plot Chart
             dbc.Card([
@@ -519,7 +526,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         if not articles_data.empty and selected_article_rows[0] < len(articles_data):
             selected_article_pk = articles_data.iloc[selected_article_rows[0]]['PK']
 
-    # Get selected company PK  
+    # Get selected company PK
     selected_company_pk = None
     if selected_company_rows:
         companies_data = get_companies(selected_article_pk)
@@ -548,8 +555,8 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             period_label = "Month"
 
         fig = px.scatter(
-            scatter_data, 
-            x='period', 
+            scatter_data,
+            x='period',
             y='y_position',
             hover_data=['title', 'published_date'],
             title=f'Articles Published by {period_label} (Each dot represents one article)'
@@ -675,7 +682,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     else:
         filter_status = "No filters applied"
 
-    return (articles_records, companies_records, fig, article_count, company_count, 
+    return (articles_records, companies_records, fig, article_count, company_count,
             filter_status, selected_article_pk or '', selected_company_pk or '',
             company_options, industry_options)
 
@@ -690,6 +697,7 @@ def clear_filters(n_clicks):
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'clear-filters.n_clicks' and n_clicks:
         return [None, None]
     return [dash.no_update, dash.no_update]
+
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=True)
