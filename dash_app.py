@@ -2,7 +2,7 @@
 import os
 import logging
 import dash
-from dash import dcc, html, Input, Output, State, dash_table, callback_context
+from dash import dcc, html, Input, Output, dash_table, callback_context
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
@@ -474,21 +474,6 @@ def update_aggregation_type(weekly_clicks, monthly_clicks, quarterly_clicks):
 
     return "monthly", "outline-primary", "primary", "outline-primary"
 
-# Callback to sync date filters with chart range changes
-@app.callback(
-    [Output('start-date-filter', 'date'),
-     Output('end-date-filter', 'date')],
-    [Input('scatter-plot-chart', 'relayoutData')],
-    prevent_initial_call=True
-)
-def sync_date_filters_with_chart(relayout_data):
-    """Sync date filter boxes when chart range slider changes"""
-    if relayout_data and 'xaxis.range[0]' in relayout_data and 'xaxis.range[1]' in relayout_data:
-        start_date = pd.to_datetime(relayout_data['xaxis.range[0]']).date()
-        end_date = pd.to_datetime(relayout_data['xaxis.range[1]']).date()
-        return start_date, end_date
-    return dash.no_update, dash.no_update
-
 # Main dashboard callback
 @app.callback(
     [Output('articles-table', 'data'),
@@ -545,15 +530,6 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter, industry_filter)
     companies_data = get_companies(selected_article_pk)
     scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk, aggregation_type)
-    
-    # Apply date filtering to scatter data if dates are provided
-    if start_date and end_date and not scatter_data.empty:
-        start_datetime = pd.to_datetime(start_date).tz_localize('UTC')
-        end_datetime = pd.to_datetime(end_date).tz_localize('UTC') + pd.Timedelta(days=1)  # Include end date
-        scatter_data = scatter_data[
-            (scatter_data['published_date'] >= start_datetime) & 
-            (scatter_data['published_date'] < end_datetime)
-        ]
 
     # Update articles table
     articles_records = articles_data.to_dict('records') if not articles_data.empty else []
@@ -587,15 +563,10 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         data_min_date = scatter_data['published_date'].min()
         data_max_date = scatter_data['published_date'].max()
 
-        # Use date filters if provided, otherwise use default 2-year range
-        if start_date and end_date:
-            preselected_start = pd.to_datetime(start_date)
-            preselected_end = pd.to_datetime(end_date)
-        else:
-            # Set pre-selected range to last 2 years from data max date
-            two_years_ago = data_max_date - pd.DateOffset(years=2)
-            preselected_start = max(two_years_ago, data_min_date)  # Don't go before data starts
-            preselected_end = data_max_date
+        # Set pre-selected range to last 2 years from data max date
+        two_years_ago = data_max_date - pd.DateOffset(years=2)
+        preselected_start = max(two_years_ago, data_min_date)  # Don't go before data starts
+        preselected_end = data_max_date
 
         # Configure range slider with custom settings
         fig.update_layout(
@@ -707,22 +678,6 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     return (articles_records, companies_records, fig, article_count, company_count, 
             filter_status, selected_article_pk or '', selected_company_pk or '',
             company_options, industry_options)
-
-# Callback to sync chart range with date filter changes
-@app.callback(
-    Output('scatter-plot-chart', 'figure', allow_duplicate=True),
-    [Input('start-date-filter', 'date'),
-     Input('end-date-filter', 'date')],
-    [State('scatter-plot-chart', 'figure')],
-    prevent_initial_call=True
-)
-def sync_chart_with_date_filters(start_date, end_date, current_figure):
-    """Sync chart range when date filter boxes change"""
-    if start_date and end_date and current_figure:
-        # Update the chart's x-axis range
-        current_figure['layout']['xaxis']['range'] = [start_date, end_date]
-        return current_figure
-    return dash.no_update
 
 @app.callback(
     [Output('company-filter', 'value'),
