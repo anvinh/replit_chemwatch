@@ -83,16 +83,8 @@ def get_companies(article_filter=None):
             settlement_amount = ''
             if pd.notna(company['settlement_amount']):
                 currency = str(company['settlement_currency']) if pd.notna(company['settlement_currency']) else ''
-                amount_str = str(company['settlement_amount'])
-                # Handle range values or single values
-                if 'to' in amount_str.lower():
-                    settlement_amount = f"{currency} {amount_str}".strip()
-                else:
-                    try:
-                        amount = float(amount_str)
-                        settlement_amount = f"{currency} {amount:,.0f}".strip()
-                    except ValueError:
-                        settlement_amount = f"{currency} {amount_str}".strip()
+                amount = float(company['settlement_amount']) if pd.notna(company['settlement_amount']) else 0
+                settlement_amount = f"{currency} {amount:,.0f}".strip()
 
             data.append({
                 'PK': str(company['pk']),
@@ -110,7 +102,7 @@ def get_companies(article_filter=None):
         logging.error(f"Error fetching companies: {str(e)}")
         return pd.DataFrame()
 
-def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly", start_date=None, end_date=None):
+def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly"):
     """Get data for scatter plot showing articles published per week or month"""
     try:
         df = articles_df.copy()
@@ -133,15 +125,6 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 
         # Filter out rows with null published_at
         df = df[pd.notna(df['published_at'])]
-
-        # Apply date range filtering
-        if start_date:
-            start_date = pd.to_datetime(start_date).tz_localize(None)
-            df = df[df['published_at'].dt.tz_localize(None) >= start_date]
-        
-        if end_date:
-            end_date = pd.to_datetime(end_date).tz_localize(None) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)  # Include the entire end date
-            df = df[df['published_at'].dt.tz_localize(None) <= end_date]
 
         data = []
         for _, article in df.iterrows():
@@ -546,7 +529,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     # Get filtered data
     articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter, industry_filter)
     companies_data = get_companies(selected_article_pk)
-    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk, aggregation_type, start_date, end_date)
+    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk, aggregation_type)
 
     # Update articles table
     articles_records = articles_data.to_dict('records') if not articles_data.empty else []
@@ -574,15 +557,6 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             marker=dict(size=8, opacity=0.7),
             hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[1]}}<br>{period_label}: %{{x}}<extra></extra>'
         )
-        # Calculate range slider bounds based on data and filters
-        if start_date and end_date:
-            range_start = pd.to_datetime(start_date).tz_localize(None)
-            range_end = pd.to_datetime(end_date).tz_localize(None)
-        else:
-            # Fallback to data bounds if no filters are set
-            range_start = scatter_data['published_date'].dt.tz_localize(None).min()
-            range_end = scatter_data['published_date'].dt.tz_localize(None).max()
-
         fig.update_layout(
             xaxis_title=f"{period_label} Starting",
             yaxis_title=f"Articles in {period_label}",
@@ -591,8 +565,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             xaxis=dict(
                 rangeslider=dict(
                     visible=True,
-                    thickness=0.1,
-                    range=[range_start, range_end]
+                    thickness=0.1
                 ),
                 type="date"
             )
