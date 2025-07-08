@@ -83,7 +83,8 @@ def get_companies(article_filter=None):
             settlement_amount = ''
             if pd.notna(company['settlement_amount']):
                 currency = str(company['settlement_currency']) if pd.notna(company['settlement_currency']) else ''
-                settlement_amount = f"{currency} {company['settlement_amount']:,.0f}".strip()
+                amount = float(company['settlement_amount']) if pd.notna(company['settlement_amount']) else 0
+                settlement_amount = f"{currency} {amount:,.0f}".strip()
 
             data.append({
                 'PK': str(company['pk']),
@@ -130,6 +131,11 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
             if aggregation_type == "weekly":
                 # Get the start of the week (Monday)
                 period_start = article['published_at'] - pd.Timedelta(days=article['published_at'].weekday())
+                period_key = period_start.strftime('%Y-%m-%d')
+            elif aggregation_type == "quarterly":
+                # Get the start of the quarter
+                quarter = (article['published_at'].month - 1) // 3 + 1
+                period_start = pd.Timestamp(year=article['published_at'].year, month=(quarter-1)*3+1, day=1)
                 period_key = period_start.strftime('%Y-%m-%d')
             else:  # monthly
                 # Get the start of the month
@@ -178,6 +184,48 @@ app.layout = dbc.Container([
                     html.I(className="fas fa-filter me-2"),
                     "Filters"
                 ], className="mb-4"),
+
+                # Date Filters Section
+                html.Div([
+                    html.Div([
+                        dbc.Label([
+                            html.I(className="fas fa-calendar me-1"),
+                            "Start Date"
+                        ]),
+                        dcc.DatePickerSingle(
+                            id='start-date-filter',
+                            date=(datetime.now() - pd.DateOffset(years=2)).date(),
+                            display_format='YYYY-MM-DD',
+                            style={
+                                'width': '100%',
+                                'height': '38px',
+                                'border-radius': '0.375rem',
+                                'border': '1px solid #ced4da',
+                                'font-size': '1rem',
+                                'padding': '0.375rem 0.75rem'
+                            }
+                        )
+                    ], className="mb-3"),
+                    html.Div([
+                        dbc.Label([
+                            html.I(className="fas fa-calendar me-1"),
+                            "End Date"
+                        ]),
+                        dcc.DatePickerSingle(
+                            id='end-date-filter',
+                            date=datetime.now().date(),
+                            display_format='YYYY-MM-DD',
+                            style={
+                                'width': '100%',
+                                'height': '38px',
+                                'border-radius': '0.375rem',
+                                'border': '1px solid #ced4da',
+                                'font-size': '1rem',
+                                'padding': '0.375rem 0.75rem'
+                            }
+                        )
+                    ], className="mb-3")
+                ], className="mb-4 pb-3", style={'border-bottom': '1px solid #dee2e6'}),
 
                 # Company Filter
                 html.Div([
@@ -248,8 +296,9 @@ app.layout = dbc.Container([
                     dcc.Graph(id="scatter-plot-chart"),
                     html.Div([
                         dbc.ButtonGroup([
-                            dbc.Button("Weekly", id="weekly-btn", color="primary", className="me-2"),
-                            dbc.Button("Monthly", id="monthly-btn", color="outline-primary")
+                            dbc.Button("Weekly", id="weekly-btn", color="outline-primary", className="me-2"),
+                            dbc.Button("Monthly", id="monthly-btn", color="primary", className="me-2"),
+                            dbc.Button("Quarterly", id="quarterly-btn", color="outline-primary")
                         ], className="d-flex justify-content-center mt-3")
                     ])
                 ])
@@ -402,24 +451,28 @@ def log_callback_trigger(func):
 @app.callback(
     [Output('aggregation-type', 'children'),
      Output('weekly-btn', 'color'),
-     Output('monthly-btn', 'color')],
+     Output('monthly-btn', 'color'),
+     Output('quarterly-btn', 'color')],
     [Input('weekly-btn', 'n_clicks'),
-     Input('monthly-btn', 'n_clicks')],
+     Input('monthly-btn', 'n_clicks'),
+     Input('quarterly-btn', 'n_clicks')],
     prevent_initial_call=False
 )
-def update_aggregation_type(weekly_clicks, monthly_clicks):
+def update_aggregation_type(weekly_clicks, monthly_clicks, quarterly_clicks):
     ctx = callback_context
     if not ctx.triggered:
-        return "monthly", "outline-primary", "primary"
+        return "monthly", "outline-primary", "primary", "outline-primary"
 
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if button_id == 'weekly-btn':
-        return "weekly", "primary", "outline-primary"
+        return "weekly", "primary", "outline-primary", "outline-primary"
     elif button_id == 'monthly-btn':
-        return "monthly", "outline-primary", "primary"
+        return "monthly", "outline-primary", "primary", "outline-primary"
+    elif button_id == 'quarterly-btn':
+        return "quarterly", "outline-primary", "outline-primary", "primary"
 
-    return "monthly", "outline-primary", "primary"
+    return "monthly", "outline-primary", "primary", "outline-primary"
 
 # Main dashboard callback
 @app.callback(
@@ -439,11 +492,13 @@ def update_aggregation_type(weekly_clicks, monthly_clicks):
      Input('articles-table', 'selected_rows'),
      Input('companies-table', 'selected_rows'),
      Input('clear-filters', 'n_clicks'),
-     Input('aggregation-type', 'children')],
+     Input('aggregation-type', 'children'),
+     Input('start-date-filter', 'date'),
+     Input('end-date-filter', 'date')],
     prevent_initial_call=False
 )
 @log_callback_trigger
-def update_dashboard(company_filter, industry_filter, selected_article_rows, selected_company_rows, clear_clicks, aggregation_type):
+def update_dashboard(company_filter, industry_filter, selected_article_rows, selected_company_rows, clear_clicks, aggregation_type, start_date, end_date):
     ctx = callback_context
 
     # Handle clear filters: when only the button "clear filters" is clicked
@@ -484,7 +539,13 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
 
     # Update scatter plot
     if not scatter_data.empty:
-        period_label = "Week" if aggregation_type == "weekly" else "Month"
+        if aggregation_type == "weekly":
+            period_label = "Week"
+        elif aggregation_type == "quarterly":
+            period_label = "Quarter"
+        else:
+            period_label = "Month"
+        
         fig = px.scatter(
             scatter_data, 
             x='period', 
