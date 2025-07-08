@@ -209,14 +209,7 @@ app.layout = dbc.Container([
                             id='start-date-filter',
                             date=(datetime.now() - pd.DateOffset(years=2)).date(),
                             display_format='YYYY-MM-DD',
-                            style={
-                                'width': '100%',
-                                'height': '38px',
-                                'border-radius': '0.375rem',
-                                'border': '1px solid #ced4da',
-                                'font-size': '1rem',
-                                'padding': '0.375rem 0.75rem'
-                            }
+                            style={'width': '100%'}
                         )
                     ], className="mb-3"),
                     html.Div([
@@ -225,14 +218,7 @@ app.layout = dbc.Container([
                             id='end-date-filter',
                             date=datetime.now().date(),
                             display_format='YYYY-MM-DD',
-                            style={
-                                'width': '100%',
-                                'height': '38px',
-                                'border-radius': '0.375rem',
-                                'border': '1px solid #ced4da',
-                                'font-size': '1rem',
-                                'padding': '0.375rem 0.75rem'
-                            }
+                            style={'width': '100%'}
                         )
                     ], className="mb-3")
                 ], className="mb-4 pb-3", style={'border-bottom': '1px solid #dee2e6'}),
