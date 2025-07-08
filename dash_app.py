@@ -2,7 +2,7 @@
 import os
 import logging
 import dash
-from dash import dcc, html, Input, Output, dash_table, callback_context
+from dash import dcc, html, Input, Output, State, dash_table, callback_context
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
