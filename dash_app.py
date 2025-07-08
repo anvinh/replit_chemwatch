@@ -151,9 +151,9 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 
         plot_df = pd.DataFrame(data)
         if not plot_df.empty:
-            # Group by period and add vertical positioning for dots (starting from 0)
+            # Group by period and add vertical positioning for dots (starting from 1)
             plot_df_grouped = plot_df.groupby('period').apply(lambda x: x.sort_values('published_date').assign(
-                y_position=range(len(x))
+                y_position=range(1, len(x) + 1)
             ), include_groups=False).reset_index()
             return plot_df_grouped
 
@@ -572,7 +572,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         fig.update_layout(
             xaxis_title=f"{period_label} Starting",
             yaxis_title=f"Articles in {period_label}",
-            yaxis=dict(tickmode='linear', dtick=1),
+            yaxis=dict(tickmode='linear', dtick=1, range=[0.5, max(scatter_data['y_position']) + 1.5]),  # Start y-axis from 1 (0.5 padding)
             hovermode='closest',
             xaxis=dict(
                 type="date",
@@ -585,24 +585,6 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
                     bordercolor="rgb(204,204,204)",
                     range=[data_min_date, data_max_date],  # Full data range in slider
                     yaxis=dict(rangemode="fixed")  # Keep y-axis fixed when sliding
-                ),
-                # Add range buttons for quick navigation
-                rangeselector=dict(
-                    buttons=list([
-                        dict(count=3, label="3M", step="month", stepmode="backward"),
-                        dict(count=6, label="6M", step="month", stepmode="backward"),
-                        dict(count=1, label="1Y", step="year", stepmode="backward"),
-                        dict(count=2, label="2Y", step="year", stepmode="backward"),
-                        dict(step="all", label="All")
-                    ]),
-                    bgcolor="rgba(0,0,0,0.1)",
-                    bordercolor="rgb(204,204,204)",
-                    borderwidth=1,
-                    font=dict(size=12),
-                    x=0.01,
-                    y=0.99,
-                    xanchor="left",
-                    yanchor="top"
                 )
             ),
             # Add title with data range info
@@ -610,7 +592,55 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
                 text=f'{period_label}ly Articles Published<br><sub>Data Range: {data_min_date.strftime("%Y-%m-%d")} to {data_max_date.strftime("%Y-%m-%d")} | Showing: {preselected_start.strftime("%Y-%m-%d")} to {preselected_end.strftime("%Y-%m-%d")}</sub>',
                 x=0.5,
                 font=dict(size=16)
-            )
+            ),
+            # Position range selector buttons above chart area
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    direction="right",
+                    active=3,  # Default to 2Y button
+                    x=0.5,
+                    y=1.15,  # Position above the chart
+                    xanchor="center",
+                    yanchor="top",
+                    buttons=list([
+                        dict(label="3M",
+                             method="relayout",
+                             args=[{"xaxis.range": [
+                                 (data_max_date - pd.DateOffset(months=3)).strftime('%Y-%m-%d'),
+                                 data_max_date.strftime('%Y-%m-%d')
+                             ]}]),
+                        dict(label="6M",
+                             method="relayout",
+                             args=[{"xaxis.range": [
+                                 (data_max_date - pd.DateOffset(months=6)).strftime('%Y-%m-%d'),
+                                 data_max_date.strftime('%Y-%m-%d')
+                             ]}]),
+                        dict(label="1Y",
+                             method="relayout",
+                             args=[{"xaxis.range": [
+                                 (data_max_date - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
+                                 data_max_date.strftime('%Y-%m-%d')
+                             ]}]),
+                        dict(label="2Y",
+                             method="relayout",
+                             args=[{"xaxis.range": [
+                                 preselected_start.strftime('%Y-%m-%d'),
+                                 preselected_end.strftime('%Y-%m-%d')
+                             ]}]),
+                        dict(label="All",
+                             method="relayout",
+                             args=[{"xaxis.range": [
+                                 data_min_date.strftime('%Y-%m-%d'),
+                                 data_max_date.strftime('%Y-%m-%d')
+                             ]}])
+                    ]),
+                    bgcolor="rgba(240,240,240,0.8)",
+                    bordercolor="rgb(204,204,204)",
+                    borderwidth=1,
+                    font=dict(size=12, color="black")
+                )
+            ]
         )
     else:
         fig = go.Figure()
