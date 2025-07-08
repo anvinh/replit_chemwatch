@@ -24,7 +24,7 @@ articles_df['modified_at'] = pd.to_datetime(articles_df['modified_at'], errors='
 # Create Dash app with Bootstrap theme
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-def get_articles(company_filter=None, industry_filter=None, start_date=None, end_date=None):
+def get_articles(company_filter=None, industry_filter=None):
     """Get filtered articles from CSV data"""
     try:
         df = articles_df.copy()
@@ -42,15 +42,6 @@ def get_articles(company_filter=None, industry_filter=None, start_date=None, end
 
         if industry_filter:
             df = df[df['isic_name'] == industry_filter]
-
-        # Apply date filters
-        if start_date:
-            start_date = pd.to_datetime(start_date).tz_localize(None)
-            df = df[df['published_at'].dt.tz_localize(None) >= start_date]
-
-        if end_date:
-            end_date = pd.to_datetime(end_date).tz_localize(None) + pd.Timedelta(days=1)  # Include the end date
-            df = df[df['published_at'].dt.tz_localize(None) < end_date]
 
         # Sort by published date descending
         df = df.sort_values('published_at', ascending=False, na_position='last')
@@ -110,7 +101,7 @@ def get_companies(article_filter=None):
         logging.error(f"Error fetching companies: {str(e)}")
         return pd.DataFrame()
 
-def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly", start_date=None, end_date=None):
+def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly"):
     """Get data for scatter plot showing articles published per week or month"""
     try:
         df = articles_df.copy()
@@ -130,15 +121,6 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 
         if article_filter:
             df = df[df['pk'] == article_filter]
-
-        # Apply date filters
-        if start_date:
-            start_date = pd.to_datetime(start_date).tz_localize(None)
-            df = df[df['published_at'].dt.tz_localize(None) >= start_date]
-
-        if end_date:
-            end_date = pd.to_datetime(end_date).tz_localize(None) + pd.Timedelta(days=1)  # Include the end date
-            df = df[df['published_at'].dt.tz_localize(None) < end_date]
 
         # Filter out rows with null published_at
         df = df[pd.notna(df['published_at'])]
@@ -196,32 +178,6 @@ app.layout = dbc.Container([
                     html.I(className="fas fa-filter me-2"),
                     "Filters"
                 ], className="mb-4"),
-
-                # Date Range Filters
-                html.Div([
-                    html.H6([
-                        html.I(className="fas fa-calendar me-1"),
-                        "Date Range"
-                    ], className="mb-3"),
-                    html.Div([
-                        dbc.Label("Start Date"),
-                        dcc.DatePickerSingle(
-                            id='start-date-filter',
-                            date=(datetime.now() - pd.DateOffset(years=2)).date(),
-                            display_format='YYYY-MM-DD',
-                            style={'width': '100%'}
-                        )
-                    ], className="mb-3"),
-                    html.Div([
-                        dbc.Label("End Date"),
-                        dcc.DatePickerSingle(
-                            id='end-date-filter',
-                            date=datetime.now().date(),
-                            display_format='YYYY-MM-DD',
-                            style={'width': '100%'}
-                        )
-                    ], className="mb-3")
-                ], className="mb-4 pb-3", style={'border-bottom': '1px solid #dee2e6'}),
 
                 # Company Filter
                 html.Div([
@@ -480,8 +436,6 @@ def update_aggregation_type(weekly_clicks, monthly_clicks):
 
     [Input('company-filter', 'value'),
      Input('industry-filter', 'value'),
-     Input('start-date-filter', 'date'),
-     Input('end-date-filter', 'date'),
      Input('articles-table', 'selected_rows'),
      Input('companies-table', 'selected_rows'),
      Input('clear-filters', 'n_clicks'),
@@ -489,15 +443,13 @@ def update_aggregation_type(weekly_clicks, monthly_clicks):
     prevent_initial_call=False
 )
 @log_callback_trigger
-def update_dashboard(company_filter, industry_filter, start_date, end_date, selected_article_rows, selected_company_rows, clear_clicks, aggregation_type):
+def update_dashboard(company_filter, industry_filter, selected_article_rows, selected_company_rows, clear_clicks, aggregation_type):
     ctx = callback_context
 
     # Handle clear filters: when only the button "clear filters" is clicked
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'clear-filters.n_clicks' and clear_clicks:
         company_filter = None
         industry_filter = None
-        start_date = (datetime.now() - pd.DateOffset(years=2)).date()
-        end_date = datetime.now().date()
         selected_article_rows = []
         selected_company_rows = []
 
@@ -520,9 +472,9 @@ def update_dashboard(company_filter, industry_filter, start_date, end_date, sele
             selected_company_pk = companies_data.iloc[selected_company_rows[0]]['Company Name']
 
     # Get filtered data
-    articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter, industry_filter, start_date, end_date)
+    articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter, industry_filter)
     companies_data = get_companies(selected_article_pk)
-    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk, aggregation_type, start_date, end_date)
+    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk, aggregation_type)
 
     # Update articles table
     articles_records = articles_data.to_dict('records') if not articles_data.empty else []
@@ -576,8 +528,6 @@ def update_dashboard(company_filter, industry_filter, start_date, end_date, sele
 
     # Update filter status
     filters = []
-    if start_date and end_date:
-        filters.append(f"Date: {start_date} to {end_date}")
     if company_filter:
         filters.append(f"Company: {company_filter}")
     if industry_filter:
@@ -598,17 +548,15 @@ def update_dashboard(company_filter, industry_filter, start_date, end_date, sele
 
 @app.callback(
     [Output('company-filter', 'value'),
-     Output('industry-filter', 'value'),
-     Output('start-date-filter', 'date'),
-     Output('end-date-filter', 'date')],
+     Output('industry-filter', 'value')],
     [Input('clear-filters', 'n_clicks')]
 )
 @log_callback_trigger
 def clear_filters(n_clicks):
     ctx = callback_context
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'clear-filters.n_clicks' and n_clicks:
-        return [None, None, (datetime.now() - pd.DateOffset(years=2)).date(), datetime.now().date()]
-    return [dash.no_update, dash.no_update, dash.no_update, dash.no_update]
+        return [None, None]
+    return [dash.no_update, dash.no_update]
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=True)
