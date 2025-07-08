@@ -83,8 +83,16 @@ def get_companies(article_filter=None):
             settlement_amount = ''
             if pd.notna(company['settlement_amount']):
                 currency = str(company['settlement_currency']) if pd.notna(company['settlement_currency']) else ''
-                amount = float(company['settlement_amount']) if pd.notna(company['settlement_amount']) else 0
-                settlement_amount = f"{currency} {amount:,.0f}".strip()
+                amount_str = str(company['settlement_amount'])
+                # Handle range values or single values
+                if 'to' in amount_str.lower():
+                    settlement_amount = f"{currency} {amount_str}".strip()
+                else:
+                    try:
+                        amount = float(amount_str)
+                        settlement_amount = f"{currency} {amount:,.0f}".strip()
+                    except ValueError:
+                        settlement_amount = f"{currency} {amount_str}".strip()
 
             data.append({
                 'PK': str(company['pk']),
@@ -128,12 +136,12 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 
         # Apply date range filtering
         if start_date:
-            start_date = pd.to_datetime(start_date)
-            df = df[df['published_at'] >= start_date]
+            start_date = pd.to_datetime(start_date).tz_localize(None)
+            df = df[df['published_at'].dt.tz_localize(None) >= start_date]
         
         if end_date:
-            end_date = pd.to_datetime(end_date) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)  # Include the entire end date
-            df = df[df['published_at'] <= end_date]
+            end_date = pd.to_datetime(end_date).tz_localize(None) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)  # Include the entire end date
+            df = df[df['published_at'].dt.tz_localize(None) <= end_date]
 
         data = []
         for _, article in df.iterrows():
@@ -568,12 +576,12 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         )
         # Calculate range slider bounds based on data and filters
         if start_date and end_date:
-            range_start = pd.to_datetime(start_date)
-            range_end = pd.to_datetime(end_date)
+            range_start = pd.to_datetime(start_date).tz_localize(None)
+            range_end = pd.to_datetime(end_date).tz_localize(None)
         else:
             # Fallback to data bounds if no filters are set
-            range_start = scatter_data['published_date'].min()
-            range_end = scatter_data['published_date'].max()
+            range_start = scatter_data['published_date'].dt.tz_localize(None).min()
+            range_end = scatter_data['published_date'].dt.tz_localize(None).max()
 
         fig.update_layout(
             xaxis_title=f"{period_label} Starting",
