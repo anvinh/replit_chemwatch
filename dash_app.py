@@ -86,8 +86,17 @@ def get_companies(article_filter=None):
             settlement_amount = ''
             if pd.notna(company['settlement_amount']):
                 currency = str(company['settlement_currency']) if pd.notna(company['settlement_currency']) else ''
-                amount = float(company['settlement_amount']) if pd.notna(company['settlement_amount']) else 0
-                settlement_amount = f"{currency} {amount:,.0f}".strip()
+                amount_str = str(company['settlement_amount'])
+                
+                # Handle range values (e.g., "10500000000.00 to 12500000000.00")
+                if ' to ' in amount_str:
+                    settlement_amount = f"{currency} {amount_str}".strip()
+                else:
+                    try:
+                        amount = float(amount_str)
+                        settlement_amount = f"{currency} {amount:,.0f}".strip()
+                    except ValueError:
+                        settlement_amount = f"{currency} {amount_str}".strip()
 
             data.append({
                 'PK': str(company['pk']),
@@ -144,15 +153,15 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
                 # Get the start of the quarter
                 quarter = (article['published_at'].month - 1) // 3 + 1
                 period_start = pd.Timestamp(year=article['published_at'].year, month=(quarter - 1) * 3 + 1, day=1)
-                iso_year, iso_week, _ = period_start.isocalendar()
+                iso_year = period_start.year
                 period_key = period_start.strftime('%Y-%m')
                 period_name = f"{iso_year}-Q{quarter}"
             else:  # monthly
                 # Get the start of the month
                 period_start = article['published_at'].replace(day=1)
-                iso_year, iso_week, _ = period_start.isocalendar()
+                iso_year = period_start.year
                 period_key = period_start.strftime('%Y-%m')
-                period_name = f"{iso_year}-{period_start.strftime('%b')}" # Jan, Feb
+                period_name = f"{iso_year}-{period_start.strftime('%b')}"  # Jan, Feb
 
             data.append({
                 'period': period_key,
@@ -208,7 +217,7 @@ app.layout = dbc.Container([
                         , className="display-6"),
                     html.P("a HERCULES spin-off",
                            className="text-muted")
-                ], className="mb-4", style={'border-bottom': '1px solid #dee2e6'}),
+                ], className="mb-4", style={'borderBottom': '1px solid #dee2e6'}),
 
                 html.H4([
                     html.I(className="fas fa-filter me-2"),
@@ -229,9 +238,9 @@ app.layout = dbc.Container([
                             style={
                                 'width': '100%',
                                 'height': '38px',
-                                'border-radius': '0.375rem',
+                                'borderRadius': '0.375rem',
                                 'border': '1px solid #ced4da',
-                                'font-size': '1rem',
+                                'fontSize': '1rem',
                                 'padding': '0.375rem 0.75rem'
                             }
                         )
@@ -248,14 +257,14 @@ app.layout = dbc.Container([
                             style={
                                 'width': '100%',
                                 'height': '38px',
-                                'border-radius': '0.375rem',
+                                'borderRadius': '0.375rem',
                                 'border': '1px solid #ced4da',
-                                'font-size': '1rem',
+                                'fontSize': '1rem',
                                 'padding': '0.375rem 0.75rem'
                             }
                         )
                     ], className="mb-3")
-                ], className="mb-4 pb-3", style={'border-bottom': '1px solid #dee2e6'}),
+                ], className="mb-4 pb-3", style={'borderBottom': '1px solid #dee2e6'}),
 
                 # Company Filter
                 html.Div([
@@ -792,7 +801,7 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
                     )
                 ], className="mt-3") if url and url != 'nan' else html.Div()
             ])
-        ], className="border-primary", style={"border-width": "2px"})
+        ], className="border-primary", style={"borderWidth": "2px"})
 
         return info_box
 
