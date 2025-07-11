@@ -87,7 +87,7 @@ def get_companies(article_filter=None):
             if pd.notna(company['settlement_amount']):
                 currency = str(company['settlement_currency']) if pd.notna(company['settlement_currency']) else ''
                 amount_str = str(company['settlement_amount'])
-                
+
                 # Handle range values (e.g., "10500000000.00 to 12500000000.00")
                 if ' to ' in amount_str:
                     settlement_amount = f"{currency} {amount_str}".strip()
@@ -170,7 +170,7 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
                 'pk': str(article['pk']),
                 'url': article['url'],
                 'published_on': article['published_at'].strftime('%Y-%m-%d'),
-                'country': article['country_code'], #TODO: return country name from country code
+                'country': article['country_code'],  # TODO: return country name from country code
                 'industry_isic': article['isic_name'],
                 'period_name': period_name,
 
@@ -315,7 +315,6 @@ app.layout = dbc.Container([
                     , className="display-6"),
             html.P("Monitor and analyze PFAS-related articles and company involvement",
                    className="text-muted"),
-
 
             # Scatter Plot Chart
             dbc.Card([
@@ -622,8 +621,10 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         )
         fig.update_traces(
             marker=dict(size=8, opacity=0.7),
-            hovertemplate=f'<b style="word-wrap: break-word; white-space: normal; max-width: 600px; display: inline-block;">%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
-            customdata=scatter_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'country', 'industry_isic']].values
+            #TODO: wrap text does not work with <b style="display: inline-block; max-width: 600px; word-wrap: break-word; white-space: normal;">
+            hovertemplate=f'<b style="display: inline-block; max-width: 600px; word-wrap: break-word; white-space: normal;">%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
+            customdata=scatter_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'country',
+                                     'industry_isic']].values
         )
 
         # Configure range slider with custom settings
@@ -634,16 +635,16 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
                 bordercolor="gray",
                 font_size=12,
                 font_family="Arial",
+                font_color="black",
                 align="left",
-                namelength=-1,
-                bgcolor="rgba(255,255,255,0.95)",
-                borderwidth=1
+                namelength=-1
             ),
             xaxis_title=f"The bar shows all articles in the database. Slide left and right to review the articles in sections of the full history",
             yaxis_title=f"Articles per {period_label}",
             yaxis=dict(
-                tickmode='linear', 
-                dtick=max(1, max(scatter_data['y_position']) // 5) if not scatter_data.empty else 1,  # Dynamic tick step to limit to max 10 ticks
+                tickmode='linear',
+                dtick=max(1, max(scatter_data['y_position']) // 5) if not scatter_data.empty else 1,
+                # Dynamic tick step to limit to max 10 ticks
                 range=[0.5, max(scatter_data['y_position']) + 1.5] if not scatter_data.empty else [0, 2]),
             # Start y-axis from 1 (0.5 padding)
             hovermode='closest',
@@ -831,6 +832,7 @@ def sync_date_filters_with_range_slider(relayout_data):
         return start_date, end_date
     return dash.no_update, dash.no_update
 
+
 # Add a separate callback to clear the info box when filters change
 @app.callback(
     Output('article-info-box', 'children', allow_duplicate=True),
@@ -844,7 +846,6 @@ def sync_date_filters_with_range_slider(relayout_data):
 @log_callback_trigger
 def clear_article_info_on_filter_change(company_filter, industry_filter, start_date, end_date, aggregation_type):
     return html.Div()
-
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=True)
