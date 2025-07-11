@@ -118,7 +118,7 @@ def get_companies(article_filter=None):
 
 
 def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly"):
-    """Get data for scatter plot showing articles published per week or month"""
+    """Get data for scatter plot showing articles published per week or month with liability types"""
     try:
         df = articles_df.copy()
 
@@ -141,8 +141,29 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
         # Filter out rows with null published_at
         df = df[pd.notna(df['published_at'])]
 
+        # Join with companies data to get liability information
+        df_with_liability = df.merge(
+            companies_df[['pk', 'claim_category']], 
+            on='pk', 
+            how='left'
+        )
+
+        # Map claim categories to liability types
+        def map_liability_type(claim_category):
+            if pd.isna(claim_category):
+                return 'Unknown'
+            claim_str = str(claim_category).lower()
+            if 'environmental' in claim_str:
+                return 'Environmental Liability'
+            elif 'product' in claim_str:
+                return 'Product Liability'
+            else:
+                return 'Other Liability'
+
+        df_with_liability['liability_type'] = df_with_liability['claim_category'].apply(map_liability_type)
+
         data = []
-        for _, article in df.iterrows():
+        for _, article in df_with_liability.iterrows():
             if aggregation_type == "weekly":
                 # Get the start of the week (Monday)
                 period_start = article['published_at'] - pd.Timedelta(days=article['published_at'].weekday())
@@ -173,15 +194,20 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
                 'country': article['country_code'],  # TODO: return country name from country code
                 'industry_isic': article['isic_name'],
                 'period_name': period_name,
-
+                'liability_type': article['liability_type'],
+                'claim_category': str(article['claim_category']) if pd.notna(article['claim_category']) else 'Unknown'
             })
 
         plot_df = pd.DataFrame(data)
         if not plot_df.empty:
-            # Group by period and add vertical positioning for dots (starting from 1)
-            plot_df_grouped = plot_df.groupby('period').apply(lambda x: x.sort_values('published_at').assign(
-                y_position=range(1, len(x) + 1)
-            ), include_groups=False).reset_index()
+            # Group by period and liability type, then sort by liability type and published date
+            def assign_positions(group):
+                # Sort by liability type first, then by published date
+                sorted_group = group.sort_values(['liability_type', 'published_at'])
+                sorted_group = sorted_group.assign(y_position=range(1, len(sorted_group) + 1))
+                return sorted_group
+            
+            plot_df_grouped = plot_df.groupby('period').apply(assign_positions, include_groups=False).reset_index()
             return plot_df_grouped
 
         return pd.DataFrame()
@@ -623,19 +649,27 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         #         (scatter_data['published_at'] < end_datetime)
         #     ]
 
+        # Define colors for liability types
+        liability_colors = {
+            'Environmental Liability': '#e74c3c',  # Red
+            'Product Liability': '#3498db',        # Blue
+            'Other Liability': '#f39c12',          # Orange
+            'Unknown': '#95a5a6'                   # Gray
+        }
+        
         fig = px.scatter(
             scatter_data,
             x='period',
             y='y_position',
-            hover_data=['title', 'published_at'],
-            title=f'Articles Published by {period_label} (Each dot represents one article)'
+            color='liability_type',
+            color_discrete_map=liability_colors,
+            hover_data=['title', 'published_at', 'liability_type'],
+            title=f'Articles Published by {period_label} - Colored by Liability Type'
         )
         fig.update_traces(
             marker=dict(size=8, opacity=0.7),
-            #TODO: wrap text does not work with <b style="display: inline-block; max-width: 600px; word-wrap: break-word; white-space: normal;">
-            hovertemplate=f'<b style="display: inline-block; max-width: 600px; word-wrap: break-word; white-space: normal;">%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
-            customdata=scatter_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'country',
-                                     'industry_isic']].values
+            hovertemplate=f'<b style="display: inline-block; max-width: 600px; word-wrap: break-word; white-space: normal;">%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<br>Liability Type: %{{customdata[6]}}<br>Claim Category: %{{customdata[7]}}<extra></extra>',
+            customdata=scatter_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'liability_type', 'claim_category']].values
         )
 
         # Configure range slider with custom settings
@@ -692,9 +726,20 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             ),
             # Add title with data range info
             title=dict(
-                text=f'{period_label}ly Articles Published<br><sub>Data Range: {data_min_date.strftime("%Y-%m-%d")} to {data_max_date.strftime("%Y-%m-%d")} | Showing: {preselected_start.strftime("%Y-%m-%d")} to {preselected_end.strftime("%Y-%m-%d")}</sub>',
+                text=f'{period_label}ly Articles Published - Colored by Liability Type<br><sub>Data Range: {data_min_date.strftime("%Y-%m-%d")} to {data_max_date.strftime("%Y-%m-%d")} | Showing: {preselected_start.strftime("%Y-%m-%d")} to {preselected_end.strftime("%Y-%m-%d")}</sub>',
                 x=0.5,
                 font=dict(size=16)
+            ),
+            # Configure legend
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                bgcolor="rgba(255,255,255,0.8)",
+                bordercolor="rgba(0,0,0,0.2)",
+                borderwidth=1
             ),
 
         )
@@ -786,6 +831,25 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
 
         article = article_data.iloc[0]
 
+        # Get liability information from scatter data
+        scatter_data = get_scatter_plot_data(company_filter, industry_filter, None, aggregation_type)
+        liability_info = "Unknown"
+        claim_category = "Unknown"
+        
+        if not scatter_data.empty:
+            article_info = scatter_data[scatter_data['pk'] == pk]
+            if not article_info.empty:
+                liability_info = article_info.iloc[0]['liability_type']
+                claim_category = article_info.iloc[0]['claim_category']
+
+        # Define color for liability type badge
+        liability_colors = {
+            'Environmental Liability': 'danger',
+            'Product Liability': 'primary', 
+            'Other Liability': 'warning',
+            'Unknown': 'secondary'
+        }
+        
         # Create info box content
         info_box = dbc.Card([
             dbc.CardHeader([
@@ -803,6 +867,14 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
                 html.P([
                     html.Strong("Article ID: "),
                     pk
+                ], className="mb-2"),
+                html.P([
+                    html.Strong("Liability Type: "),
+                    dbc.Badge(liability_info, color=liability_colors.get(liability_info, 'secondary'), className="me-2")
+                ], className="mb-2"),
+                html.P([
+                    html.Strong("Claim Category: "),
+                    claim_category
                 ], className="mb-2"),
                 html.Div([
                     html.A(
