@@ -1,5 +1,4 @@
-
-/* Allianz Official Website Corporate Identity Styling */
+/* Allianz Corporate Identity Styling - Cleaned Up */
 
 /* Color Variables - Based on Allianz.de */
 :root {
@@ -7,17 +6,11 @@
     --allianz-secondary-blue: #005599;
     --allianz-light-blue: #0066CC;
     --allianz-accent-blue: #4A90E2;
-    --allianz-dark-gray: #2C3E50;
-    --allianz-medium-gray: #5A6C7D;
     --allianz-light-gray: #F8F9FA;
     --allianz-border-gray: #E1E8ED;
     --allianz-white: #FFFFFF;
     --allianz-text-dark: #1A202C;
     --allianz-text-medium: #4A5568;
-    --allianz-text-light: #718096;
-    --allianz-success: #38A169;
-    --allianz-warning: #D69E2E;
-    --allianz-danger: #E53E3E;
     --allianz-shadow: rgba(0, 0, 0, 0.1);
 }
 
@@ -263,24 +256,16 @@ h1, h2, h3, h4, h5, h6 {
     background-color: var(--allianz-white);
 }
 
-/* Badge Styling */
-.badge {
-    font-size: 0.75rem;
+.card-body p {
+    margin-bottom: 0.75rem;
+    color: var(--allianz-text-medium);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.card-body strong {
+    color: var(--allianz-text-dark);
     font-weight: 600;
-    padding: 0.375rem 0.75rem;
-    border-radius: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-}
-
-.badge-primary {
-    background: var(--allianz-secondary-blue);
-    color: var(--allianz-white);
-}
-
-.badge-secondary {
-    background: var(--allianz-medium-gray);
-    color: var(--allianz-white);
 }
 
 /* Button Group Styling */
@@ -306,6 +291,7 @@ h1, h2, h3, h4, h5, h6 {
     background: var(--allianz-primary-blue);
     border-color: var(--allianz-primary-blue);
     color: var(--allianz-white);
+    text-decoration: none;
 }
 
 .btn-outline-primary {
@@ -353,30 +339,38 @@ h1, h2, h3, h4, h5, h6 {
     text-decoration: none;
 }
 
-/* Data Table Styling */
-.dash-table-container {
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px var(--allianz-shadow);
-    border: 1px solid var(--allianz-border-gray);
+/* Animation Classes */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
 }
 
-.dash-table-container .dash-spreadsheet-container {
-    border: none;
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.dash-table-container .dash-header {
-    background-color: var(--allianz-light-gray);
-    color: var(--allianz-text-dark);
-    font-weight: 600;
-    font-size: 0.875rem;
+/* Scrollbar Styling */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
 }
 
-.dash-table-container .dash-cell {
-    font-size: 0.875rem;
-    color: var(--allianz-text-dark);
-    padding: 0.75rem;
-    border-color: var(--allianz-border-gray);
+.sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
 /* Responsive Design */
@@ -386,26 +380,26 @@ h1, h2, h3, h4, h5, h6 {
         width: 100% !important;
         height: auto !important;
     }
-    
+
     .main-content {
         margin-left: 0 !important;
         width: 100% !important;
         padding: 1rem;
     }
-    
+
     .btn-group {
         flex-direction: column;
     }
-    
+
     .btn-group .btn {
         margin: 0.125rem 0;
         width: 100%;
     }
-    
+
     .main-header {
         padding: 1.5rem;
     }
-    
+
     .main-header h1 {
         font-size: 1.5rem;
     }
@@ -428,22 +422,6 @@ h1, h2, h3, h4, h5, h6 {
     border-color: var(--allianz-border-gray) !important;
 }
 
-/* Animation Classes */
-.fade-in {
-    animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 .slide-in {
     animation: slideIn 0.4s ease-out;
 }
@@ -457,24 +435,6 @@ h1, h2, h3, h4, h5, h6 {
         opacity: 1;
         transform: translateX(0);
     }
-}
-
-/* Scrollbar Styling */
-.sidebar::-webkit-scrollbar {
-    width: 6px;
-}
-
-.sidebar::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.sidebar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
-}
-
-.sidebar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
 }
 
 /* Focus States */
@@ -495,19 +455,6 @@ select:focus {
 }
 
 /* Additional refinements for professional appearance */
-.card-body p {
-    margin-bottom: 0.75rem;
-    color: var(--allianz-text-medium);
-    font-size: 0.875rem;
-    line-height: 1.5;
-}
-
-.card-body strong {
-    color: var(--allianz-text-dark);
-    font-weight: 600;
-}
-
-/* Button refinements */
 .btn {
     border: 1px solid transparent;
     font-family: inherit;
