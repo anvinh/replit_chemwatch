@@ -620,7 +620,15 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
 
         # Configure range slider with custom settings
         fig.update_layout(
-            height=600,
+            height=600,  # Increased height by 50% (from default ~400px to 600px)
+            hoverlabel=dict(
+                bgcolor="white",
+                bordercolor="gray",
+                font_size=12,
+                font_family="Arial",
+                align="left",
+                namelength=-1
+            ),
             xaxis_title=f"The bar shows all articles in the database. Slide left and right to review the articles in sections of the full history",
             yaxis_title=f"Articles per {period_label}",
             yaxis=dict(tickmode='linear', dtick=1, range=[0.5, max(scatter_data['y_position']) + 1.5] if not scatter_data.empty else [0, 2]),
@@ -631,7 +639,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
                 range=[preselected_start, preselected_end],  # Pre-selected range (last 2 years)
                 rangeslider=dict(
                     visible=True,
-                    thickness=0.1,  # Slightly thicker for better visibility
+                    thickness=0.08,  # Reduced thickness (8% of plot height)
                     bgcolor="rgba(0,0,0,0.1)",  # Light background
                     borderwidth=1,
                     bordercolor="rgb(204,204,204)",
