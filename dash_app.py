@@ -641,7 +641,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             yaxis_title=f"Articles per {period_label}",
             yaxis=dict(
                 tickmode='linear', 
-                dtick=max(1, int(max(scatter_data['y_position']) / 10)) if not scatter_data.empty else 1,  # Dynamic tick step to limit to max 10 ticks
+                dtick=max(1, max(scatter_data['y_position']) // 5) if not scatter_data.empty else 1,  # Dynamic tick step to limit to max 10 ticks
                 range=[0.5, max(scatter_data['y_position']) + 1.5] if not scatter_data.empty else [0, 2]),
             # Start y-axis from 1 (0.5 padding)
             hovermode='closest',
