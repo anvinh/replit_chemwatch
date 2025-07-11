@@ -634,6 +634,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             xaxis=dict(
                 type="date",
                 range=[preselected_start, preselected_end],  # Pre-selected range (last 2 years)
+                nticks=10,  # Limit to maximum 10 ticks for better readability
                 rangeslider=dict(
                     visible=True,
                     thickness=0.08,  # Reduced thickness (8% of plot height)
