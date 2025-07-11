@@ -300,14 +300,11 @@ app.layout = dbc.Container([
         # Main Content
         dbc.Col([
             # Header
-            # html.Div(
-            html.Div([
-                html.H1("PFAS Articles & Companies Dashboard"
-                        , className="display-6"),
-                html.P("Monitor and analyze PFAS-related articles and company involvement",
-                       className="text-muted")
-            ], className="my-16 bg-light"),
-            # ),
+            html.H1("PFAS Articles & Companies Dashboard"
+                    , className="display-6"),
+            html.P("Monitor and analyze PFAS-related articles and company involvement",
+                   className="text-muted"),
+
 
             # Scatter Plot Chart
             dbc.Card([
