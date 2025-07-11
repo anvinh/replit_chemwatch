@@ -639,13 +639,16 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             ),
             xaxis_title=f"The bar shows all articles in the database. Slide left and right to review the articles in sections of the full history",
             yaxis_title=f"Articles per {period_label}",
-            yaxis=dict(tickmode='linear', dtick=1, range=[0.5, max(scatter_data['y_position']) + 1.5] if not scatter_data.empty else [0, 2]),
+            yaxis=dict(
+                tickmode='linear', 
+                dtick=1, 
+                nticks=10,  # Limit to maximum 10 ticks for better readability
+                range=[0.5, max(scatter_data['y_position']) + 1.5] if not scatter_data.empty else [0, 2]),
             # Start y-axis from 1 (0.5 padding)
             hovermode='closest',
             xaxis=dict(
                 type="date",
                 range=[preselected_start, preselected_end],  # Pre-selected range (last 2 years)
-                nticks=10,  # Limit to maximum 10 ticks for better readability
                 rangeslider=dict(
                     visible=True,
                     thickness=0.08,  # Reduced thickness (8% of plot height)
