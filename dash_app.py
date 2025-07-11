@@ -371,7 +371,8 @@ app.layout = dbc.Container([
                         style_cell={
                             'textAlign': 'left',
                             'padding': '10px',
-                            'fontFamily': 'Arial'
+                            'fontFamily': 'Arial',
+                            'cursor': 'pointer'  # Make rows appear clickable
                         },
                         style_header={
                             'backgroundColor': 'rgb(230, 230, 230)',
@@ -381,6 +382,11 @@ app.layout = dbc.Container([
                             {
                                 'if': {'row_index': 'odd'},
                                 'backgroundColor': 'rgb(248, 248, 248)'
+                            },
+                            {
+                                'if': {'state': 'selected'},
+                                'backgroundColor': 'rgba(0, 116, 217, 0.3)',
+                                'border': '1px solid rgb(0, 116, 217)'
                             }
                         ],
                         style_cell_conditional=[
@@ -434,7 +440,8 @@ app.layout = dbc.Container([
                         style_cell={
                             'textAlign': 'left',
                             'padding': '10px',
-                            'fontFamily': 'Arial'
+                            'fontFamily': 'Arial',
+                            'cursor': 'pointer'  # Make rows appear clickable
                         },
                         style_header={
                             'backgroundColor': 'rgb(230, 230, 230)',
@@ -444,6 +451,11 @@ app.layout = dbc.Container([
                             {
                                 'if': {'row_index': 'odd'},
                                 'backgroundColor': 'rgb(248, 248, 248)'
+                            },
+                            {
+                                'if': {'state': 'selected'},
+                                'backgroundColor': 'rgba(0, 116, 217, 0.3)',
+                                'border': '1px solid rgb(0, 116, 217)'
                             }
                         ],
                         style_cell_conditional=[
@@ -552,25 +564,24 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     company_options = get_company_options()
     industry_options = get_industry_options()
 
-    # Get selected article PK
+    # Get selected article PK (for companies table filtering only)
     selected_article_pk = None
     if selected_article_rows:
-        articles_data = get_articles(company_filter, industry_filter)
-        if not articles_data.empty and selected_article_rows[0] < len(articles_data):
-            selected_article_pk = articles_data.iloc[selected_article_rows[0]]['PK']
+        articles_data_temp = get_articles(company_filter, industry_filter)
+        if not articles_data_temp.empty and selected_article_rows[0] < len(articles_data_temp):
+            selected_article_pk = articles_data_temp.iloc[selected_article_rows[0]]['PK']
 
-    # Get selected company PK
+    # Get selected company PK (not used for chart filtering)
     selected_company_pk = None
     if selected_company_rows:
-        companies_data = get_companies(selected_article_pk)
-        if not companies_data.empty and selected_company_rows[0] < len(companies_data):
-            selected_company_pk = companies_data.iloc[selected_company_rows[0]]['Company Name']
+        companies_data_temp = get_companies(selected_article_pk)
+        if not companies_data_temp.empty and selected_company_rows[0] < len(companies_data_temp):
+            selected_company_pk = companies_data_temp.iloc[selected_company_rows[0]]['Company Name']
 
-    # Get filtered data
-    articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter, industry_filter)
-    companies_data = get_companies(selected_article_pk)
-    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter,
-                                         industry_filter, selected_article_pk, aggregation_type)
+    # Get filtered data (chart only uses main filters, not table selections)
+    articles_data = get_articles(company_filter, industry_filter)
+    companies_data = get_companies(selected_article_pk)  # Companies table still filtered by selected article
+    scatter_data = get_scatter_plot_data(company_filter, industry_filter, None, aggregation_type)  # Chart ignores table selections
 
     # Update articles table
     articles_records = articles_data.to_dict('records') if not articles_data.empty else []
@@ -704,16 +715,12 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     article_count = f"{len(articles_data)} articles"
     company_count = f"{len(companies_data)} companies"
 
-    # Update filter status
+    # Update filter status (only show main filters, not table selections)
     filters = []
     if company_filter:
         filters.append(f"Company: {company_filter}")
     if industry_filter:
         filters.append(f"Industry: {industry_filter}")
-    if selected_article_pk:
-        filters.append(f"Article selected")
-    if selected_company_pk:
-        filters.append(f"Company: {selected_company_pk}")
 
     if filters:
         filter_status = f"Active filters: {', '.join(filters)}"
