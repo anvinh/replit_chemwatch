@@ -622,7 +622,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         )
         fig.update_traces(
             marker=dict(size=8, opacity=0.7),
-            hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
+            hovertemplate=f'<b style="word-wrap: break-word; white-space: normal; max-width: 600px; display: inline-block;">%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
             customdata=scatter_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'country', 'industry_isic']].values
         )
 
@@ -635,7 +635,9 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
                 font_size=12,
                 font_family="Arial",
                 align="left",
-                namelength=-1
+                namelength=-1,
+                bgcolor="rgba(255,255,255,0.95)",
+                borderwidth=1
             ),
             xaxis_title=f"The bar shows all articles in the database. Slide left and right to review the articles in sections of the full history",
             yaxis_title=f"Articles per {period_label}",
