@@ -631,7 +631,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
                 range=[preselected_start, preselected_end],  # Pre-selected range (last 2 years)
                 rangeslider=dict(
                     visible=True,
-                    thickness=0.15,  # Slightly thicker for better visibility
+                    thickness=50,  # Set to 50px height
                     bgcolor="rgba(0,0,0,0.1)",  # Light background
                     borderwidth=1,
                     bordercolor="rgb(204,204,204)",
