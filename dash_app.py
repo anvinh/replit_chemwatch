@@ -594,14 +594,19 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             customdata=scatter_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'country', 'industry_isic']].values
         )
 
-        # Calculate data-driven range slider bounds
+        # Calculate data-driven range slider bounds from original data
         data_min_date = scatter_data['published_at'].min()
         data_max_date = scatter_data['published_at'].max()
 
-        # Set pre-selected range to last 2 years from data max date
-        two_years_ago = data_max_date - pd.DateOffset(years=2)
-        preselected_start = max(two_years_ago, data_min_date)  # Don't go before data starts
-        preselected_end = data_max_date
+        # Use date filters as preselected range if provided, otherwise use 2-year default
+        if start_date and end_date:
+            preselected_start = pd.to_datetime(start_date).tz_localize('UTC')
+            preselected_end = pd.to_datetime(end_date).tz_localize('UTC')
+        else:
+            # Set pre-selected range to last 2 years from data max date
+            two_years_ago = data_max_date - pd.DateOffset(years=2)
+            preselected_start = max(two_years_ago, data_min_date)  # Don't go before data starts
+            preselected_end = data_max_date
 
         # Configure range slider with custom settings
         fig.update_layout(
@@ -840,6 +845,172 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
 def clear_article_info_on_filter_change(company_filter, industry_filter, start_date, end_date, aggregation_type):
     return html.Div()
 
+
+
+# Callback to update chart range when date filters change independently
+@app.callback(
+    Output('scatter-plot-chart', 'figure', allow_duplicate=True),
+    [Input('start-date-filter', 'date'),
+     Input('end-date-filter', 'date')],
+    [dash.dependencies.State('company-filter', 'value'),
+     dash.dependencies.State('industry-filter', 'value'),
+     dash.dependencies.State('aggregation-type', 'children'),
+     dash.dependencies.State('selected-article-pk', 'children'),
+     dash.dependencies.State('selected-company-pk', 'children')],
+    prevent_initial_call=True
+)
+@log_callback_trigger
+def update_chart_range_from_date_filters(start_date, end_date, company_filter, industry_filter, aggregation_type, selected_article_pk, selected_company_pk):
+    ctx = callback_context
+
+    # Only trigger when date filters change
+    if not ctx.triggered or not any('date-filter' in trigger['prop_id'] for trigger in ctx.triggered):
+        return dash.no_update
+
+    # Get data with current filters
+    scatter_data = get_scatter_plot_data(
+        selected_company_pk if selected_company_pk else company_filter,
+        industry_filter, 
+        selected_article_pk, 
+        aggregation_type
+    )
+
+    if scatter_data.empty:
+        return dash.no_update
+
+    # Apply date filtering
+    filtered_scatter_data = scatter_data.copy()
+    if start_date and end_date:
+        start_datetime = pd.to_datetime(start_date).tz_localize('UTC')
+        end_datetime = pd.to_datetime(end_date).tz_localize('UTC') + pd.Timedelta(days=1)
+        filtered_scatter_data = scatter_data[
+            (scatter_data['published_at'] >= start_datetime) & 
+            (scatter_data['published_at'] < end_datetime)
+        ]
+
+    if aggregation_type == "weekly":
+        period_label = "Week"
+    elif aggregation_type == "quarterly":
+        period_label = "Quarter"
+    else:
+        period_label = "Month"
+
+    fig = px.scatter(
+        filtered_scatter_data,
+        x='period',
+        y='y_position',
+        hover_data=['title', 'published_at'],
+        title=f'Articles Published by {period_label} (Each dot represents one article)'
+    )
+    fig.update_traces(
+        marker=dict(size=8, opacity=0.7),
+        hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
+        customdata=filtered_scatter_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'country', 'industry_isic']].values
+    )
+
+    # Calculate range bounds
+    data_min_date = scatter_data['published_at'].min()
+    data_max_date = scatter_data['published_at'].max()
+
+    # Use date filters as preselected range
+    if start_date and end_date:
+        preselected_start = pd.to_datetime(start_date).tz_localize('UTC')
+        preselected_end = pd.to_datetime(end_date).tz_localize('UTC')
+    else:
+        two_years_ago = data_max_date - pd.DateOffset(years=2)
+        preselected_start = max(two_years_ago, data_min_date)
+        preselected_end = data_max_date
+
+    fig.update_layout(
+        xaxis_title=f"The bar shows the full history. Slide left and right to review the data in section",
+        yaxis_title=f"Articles per {period_label}",
+        yaxis=dict(tickmode='linear', dtick=1, range=[0.5, max(filtered_scatter_data['y_position']) + 1.5] if not filtered_scatter_data.empty else [0, 2]),
+        hovermode='closest',
+        xaxis=dict(
+            type="date",
+            range=[preselected_start, preselected_end],
+            rangeslider=dict(
+                visible=True,
+                thickness=0.15,
+                bgcolor="rgba(0,0,0,0.1)",
+                borderwidth=1,
+                bordercolor="rgb(204,204,204)",
+                range=[data_min_date, data_max_date],
+                yaxis=dict(rangemode="fixed")
+            ),
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=3, label="3M", step="month", stepmode="backward"),
+                    dict(count=6, label="6M", step="month", stepmode="backward"),
+                    dict(count=1, label="1Y", step="year", stepmode="backward"),
+                    dict(count=2, label="2Y", step="year", stepmode="backward"),
+                    dict(step="all", label="All")
+                ]),
+                bgcolor="rgba(0,0,0,0.1)",
+                bordercolor="rgb(204,204,204)",
+                borderwidth=1,
+                font=dict(size=12),
+                x=0.01,
+                y=0.99,
+                xanchor="left",
+                yanchor="top"
+            )
+        ),
+        title=dict(
+            text=f'{period_label}ly Articles Published<br><sub>Data Range: {data_min_date.strftime("%Y-%m-%d")} to {data_max_date.strftime("%Y-%m-%d")} | Showing: {preselected_start.strftime("%Y-%m-%d")} to {preselected_end.strftime("%Y-%m-%d")}</sub>',
+            x=0.5,
+            font=dict(size=16)
+        ),
+        updatemenus=[
+            dict(
+                type="buttons",
+                direction="right",
+                active=3,
+                x=0.5,
+                y=1.15,
+                xanchor="center",
+                yanchor="top",
+                buttons=list([
+                    dict(label="3M",
+                         method="relayout",
+                         args=[{"xaxis.range": [
+                             (data_max_date - pd.DateOffset(months=3)).strftime('%Y-%m-%d'),
+                             data_max_date.strftime('%Y-%m-%d')
+                         ]}]),
+                    dict(label="6M",
+                         method="relayout",
+                         args=[{"xaxis.range": [
+                             (data_max_date - pd.DateOffset(months=6)).strftime('%Y-%m-%d'),
+                             data_max_date.strftime('%Y-%m-%d')
+                         ]}]),
+                    dict(label="1Y",
+                         method="relayout",
+                         args=[{"xaxis.range": [
+                             (data_max_date - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
+                             data_max_date.strftime('%Y-%m-%d')
+                         ]}]),
+                    dict(label="2Y",
+                         method="relayout",
+                         args=[{"xaxis.range": [
+                             (data_max_date - pd.DateOffset(years=2) if data_max_date - pd.DateOffset(years=2) >= data_min_date else data_min_date).strftime('%Y-%m-%d'),
+                             data_max_date.strftime('%Y-%m-%d')
+                         ]}]),
+                    dict(label="All",
+                         method="relayout",
+                         args=[{"xaxis.range": [
+                             data_min_date.strftime('%Y-%m-%d'),
+                             data_max_date.strftime('%Y-%m-%d')
+                         ]}])
+                ]),
+                bgcolor="rgba(240,240,240,0.8)",
+                bordercolor="rgb(204,204,204)",
+                borderwidth=1,
+                font=dict(size=12, color="black")
+            )
+        ]
+    )
+
+    return fig
 
 
 if __name__ == '__main__':
