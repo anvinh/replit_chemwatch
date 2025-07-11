@@ -581,19 +581,6 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         else:
             period_label = "Month"
 
-        fig = px.scatter(
-            display_data,
-            x='period',
-            y='y_position',
-            hover_data=['title', 'published_at'],
-            title=f'Articles Published by {period_label} (Each dot represents one article)'
-        )
-        fig.update_traces(
-            marker=dict(size=8, opacity=0.7),
-            hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
-            customdata=display_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'country', 'industry_isic']].values
-        )
-
         # Calculate data-driven range slider bounds from original data
         data_min_date = scatter_data['published_at'].min()
         data_max_date = scatter_data['published_at'].max()
@@ -617,6 +604,19 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
                 (scatter_data['published_at'] >= start_datetime) & 
                 (scatter_data['published_at'] < end_datetime)
             ]
+
+        fig = px.scatter(
+            display_data,
+            x='period',
+            y='y_position',
+            hover_data=['title', 'published_at'],
+            title=f'Articles Published by {period_label} (Each dot represents one article)'
+        )
+        fig.update_traces(
+            marker=dict(size=8, opacity=0.7),
+            hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
+            customdata=display_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'country', 'industry_isic']].values
+        )
 
         # Configure range slider with custom settings
         fig.update_layout(
@@ -841,6 +841,21 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
         ])
 
 
+# Callback to sync date filters with range slider
+@app.callback(
+    [Output('start-date-filter', 'date'),
+     Output('end-date-filter', 'date')],
+    [Input('scatter-plot-chart', 'relayoutData')],
+    prevent_initial_call=True
+)
+@log_callback_trigger
+def sync_date_filters_with_range_slider(relayout_data):
+    if relayout_data and 'xaxis.range[0]' in relayout_data and 'xaxis.range[1]' in relayout_data:
+        start_date = pd.to_datetime(relayout_data['xaxis.range[0]']).date()
+        end_date = pd.to_datetime(relayout_data['xaxis.range[1]']).date()
+        return start_date, end_date
+    return dash.no_update, dash.no_update
+
 # Add a separate callback to clear the info box when filters change
 @app.callback(
     Output('article-info-box', 'children', allow_duplicate=True),
@@ -854,7 +869,6 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
 @log_callback_trigger
 def clear_article_info_on_filter_change(company_filter, industry_filter, start_date, end_date, aggregation_type):
     return html.Div()
-
 
 
 if __name__ == '__main__':
