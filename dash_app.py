@@ -137,20 +137,22 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
             if aggregation_type == "weekly":
                 # Get the start of the week (Monday)
                 period_start = article['published_at'] - pd.Timedelta(days=article['published_at'].weekday())
-                period_key = period_start.strftime('%Y-%m-%d')
                 iso_year, iso_week, _ = period_start.isocalendar()
+                period_key = period_start.strftime('%Y-%m-%d')
                 period_name = f"{iso_year}-{iso_week:02d}"
             elif aggregation_type == "quarterly":
                 # Get the start of the quarter
                 quarter = (article['published_at'].month - 1) // 3 + 1
                 period_start = pd.Timestamp(year=article['published_at'].year, month=(quarter - 1) * 3 + 1, day=1)
-                period_key = period_start.strftime('%Y-%m')
                 iso_year, iso_week, _ = period_start.isocalendar()
-                period_name = f"{iso_year}-{quarter}"
+                period_key = period_start.strftime('%Y-%m')
+                period_name = f"{iso_year}-Q{quarter}"
             else:  # monthly
                 # Get the start of the month
                 period_start = article['published_at'].replace(day=1)
-                period_name =period_key = period_start.strftime('%Y-%m')
+                iso_year, iso_week, _ = period_start.isocalendar()
+                period_key = period_start.strftime('%Y-%m')
+                period_name = f"{iso_year}-{period_start.strftime('%b')}" # Jan, Feb
 
             data.append({
                 'period': period_key,
