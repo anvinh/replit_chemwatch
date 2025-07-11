@@ -24,6 +24,7 @@ articles_df['modified_at'] = pd.to_datetime(articles_df['modified_at'], errors='
 # Create Dash app with Bootstrap theme
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+
 def get_articles(company_filter=None, industry_filter=None):
     """Get filtered articles from CSV data"""
     try:
@@ -54,7 +55,8 @@ def get_articles(company_filter=None, industry_filter=None):
                 'Article ID': str(article['article_id']) if pd.notna(article['article_id']) else '',
                 'Title': str(article['title']) if pd.notna(article['title']) else '',
                 'URL': str(article['url']) if pd.notna(article['url']) else '',
-                'Published Date': article['published_at'].strftime('%Y-%m-%d %H:%M') if pd.notna(article['published_at']) else '',
+                'Published Date': article['published_at'].strftime('%Y-%m-%d %H:%M') if pd.notna(
+                    article['published_at']) else '',
                 'Country': str(article['country_code']) if pd.notna(article['country_code']) else '',
                 'Industry': str(article['isic_name']) if pd.notna(article['isic_name']) else '',
                 'Search Term': str(article['search_term']) if pd.notna(article['search_term']) else ''
@@ -64,6 +66,7 @@ def get_articles(company_filter=None, industry_filter=None):
     except Exception as e:
         logging.error(f"Error fetching articles: {str(e)}")
         return pd.DataFrame()
+
 
 def get_companies(article_filter=None):
     """Get filtered companies from CSV data"""
@@ -89,18 +92,21 @@ def get_companies(article_filter=None):
             data.append({
                 'PK': str(company['pk']),
                 'Company Name': str(company['company_name']) if pd.notna(company['company_name']) else '',
-                'Litigation Reason': str(company['litigation_reason']) if pd.notna(company['litigation_reason']) else '',
+                'Litigation Reason': str(company['litigation_reason']) if pd.notna(
+                    company['litigation_reason']) else '',
                 'Claim Category': str(company['claim_category']) if pd.notna(company['claim_category']) else '',
                 'Source of PFAS': str(company['source_of_pfas']) if pd.notna(company['source_of_pfas']) else '',
                 'Settlement Finalized': 'Yes' if company['settlement_finalized'] else 'No',
                 'Settlement Amount': settlement_amount,
-                'Settlement Date': str(company['settlement_paid_date']) if pd.notna(company['settlement_paid_date']) else ''
+                'Settlement Date': str(company['settlement_paid_date']) if pd.notna(
+                    company['settlement_paid_date']) else ''
             })
 
         return pd.DataFrame(data)
     except Exception as e:
         logging.error(f"Error fetching companies: {str(e)}")
         return pd.DataFrame()
+
 
 def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly"):
     """Get data for scatter plot showing articles published per week or month"""
@@ -132,28 +138,37 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
                 # Get the start of the week (Monday)
                 period_start = article['published_at'] - pd.Timedelta(days=article['published_at'].weekday())
                 period_key = period_start.strftime('%Y-%m-%d')
+                iso_year, iso_week, _ = period_start.isocalendar()
+                period_name = f"{iso_year}-{iso_week:02d}"
             elif aggregation_type == "quarterly":
                 # Get the start of the quarter
                 quarter = (article['published_at'].month - 1) // 3 + 1
-                period_start = pd.Timestamp(year=article['published_at'].year, month=(quarter-1)*3+1, day=1)
+                period_start = pd.Timestamp(year=article['published_at'].year, month=(quarter - 1) * 3 + 1, day=1)
                 period_key = period_start.strftime('%Y-%m')
+                iso_year, iso_week, _ = period_start.isocalendar()
+                period_name = f"{iso_year}-{quarter}"
             else:  # monthly
                 # Get the start of the month
                 period_start = article['published_at'].replace(day=1)
-                period_key = period_start.strftime('%Y-%m')
+                period_name =period_key = period_start.strftime('%Y-%m')
 
             data.append({
                 'period': period_key,
                 'title': str(article['title']) if pd.notna(article['title']) else '',
-                'published_date': article['published_at'],
+                'published_at': article['published_at'],
                 'pk': str(article['pk']),
                 'url': article['url'],
+                'published_on': article['published_at'].strftime('%Y-%m-%d'),
+                'country': article['country_code'], #TODO: return country name from country code
+                'industry_isic': article['isic_name'],
+                'period_name': period_name,
+
             })
 
         plot_df = pd.DataFrame(data)
         if not plot_df.empty:
             # Group by period and add vertical positioning for dots (starting from 1)
-            plot_df_grouped = plot_df.groupby('period').apply(lambda x: x.sort_values('published_date').assign(
+            plot_df_grouped = plot_df.groupby('period').apply(lambda x: x.sort_values('published_at').assign(
                 y_position=range(1, len(x) + 1)
             ), include_groups=False).reset_index()
             return plot_df_grouped
@@ -163,17 +178,20 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
         logging.error(f"Error fetching scatter plot data: {str(e)}")
         return pd.DataFrame()
 
+
 def get_company_options():
     """Get options for company dropdown"""
     company_names = companies_df['company_name'].unique()
     options = [{'label': company, 'value': company} for company in company_names]
     return options
 
+
 def get_industry_options():
     """Get options for industry dropdown"""
     industry_names = articles_df['isic_name'].unique()
     options = [{'label': industry, 'value': industry} for industry in industry_names]
     return options
+
 
 # App layout
 app.layout = dbc.Container([
@@ -185,9 +203,9 @@ app.layout = dbc.Container([
                 html.Div([
                     html.H1(
                         "ChemWatch"
-                    , className="display-6"),
+                        , className="display-6"),
                     html.P("a HERCULES spin-off",
-                          className="text-muted")
+                           className="text-muted")
                 ], className="mb-4", style={'border-bottom': '1px solid #dee2e6'}),
 
                 html.H4([
@@ -272,7 +290,7 @@ app.layout = dbc.Container([
                 # Clear Filters Button
                 dbc.Button(
                     "Clear Filters"
-                , id="clear-filters", color="outline-secondary", className="w-100 mb-3"),
+                    , id="clear-filters", color="outline-secondary", className="w-100 mb-3"),
 
                 # Filter Status
                 html.Div(id="filter-status", className="text-muted small")
@@ -282,14 +300,14 @@ app.layout = dbc.Container([
         # Main Content
         dbc.Col([
             # Header
-            #html.Div(
-                html.Div([
-                    html.H1("PFAS Articles & Companies Dashboard"
-                    , className="display-6"),
-                    html.P("Monitor and analyze PFAS-related articles and company involvement",
-                          className="text-muted")
-                ], className="my-16 bg-light"),
-            #),
+            # html.Div(
+            html.Div([
+                html.H1("PFAS Articles & Companies Dashboard"
+                        , className="display-6"),
+                html.P("Monitor and analyze PFAS-related articles and company involvement",
+                       className="text-muted")
+            ], className="my-16 bg-light"),
+            # ),
 
             # Scatter Plot Chart
             dbc.Card([
@@ -445,16 +463,20 @@ app.layout = dbc.Container([
     html.Div(id="aggregation-type", children="monthly", style={'display': 'none'})
 ], fluid=True)
 
+
 # Define a decorator for logging callback trigger
 def log_callback_trigger(func):
     def wrapper(*args, **kwargs):
         ctx = callback_context
         if ctx.triggered:
             logging.debug(f"Callback triggered by: {ctx.triggered[0]['prop_id']}")
+            logging.debug(f"Value                : {ctx.triggered}")
         else:
             logging.debug("Callback triggered without explicit input")
         return func(*args, **kwargs)
+
     return wrapper
+
 
 # Callback for aggregation buttons
 @app.callback(
@@ -483,6 +505,7 @@ def update_aggregation_type(weekly_clicks, monthly_clicks, quarterly_clicks):
 
     return "monthly", "outline-primary", "primary", "outline-primary"
 
+
 # Main dashboard callback
 @app.callback(
     [Output('articles-table', 'data'),
@@ -507,7 +530,8 @@ def update_aggregation_type(weekly_clicks, monthly_clicks, quarterly_clicks):
     prevent_initial_call=False
 )
 @log_callback_trigger
-def update_dashboard(company_filter, industry_filter, selected_article_rows, selected_company_rows, clear_clicks, aggregation_type, start_date, end_date):
+def update_dashboard(company_filter, industry_filter, selected_article_rows, selected_company_rows, clear_clicks,
+                     aggregation_type, start_date, end_date):
     ctx = callback_context
 
     # Handle clear filters: when only the button "clear filters" is clicked
@@ -538,7 +562,8 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
     # Get filtered data
     articles_data = get_articles(selected_company_pk if selected_company_pk else company_filter, industry_filter)
     companies_data = get_companies(selected_article_pk)
-    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter, industry_filter, selected_article_pk, aggregation_type)
+    scatter_data = get_scatter_plot_data(selected_company_pk if selected_company_pk else company_filter,
+                                         industry_filter, selected_article_pk, aggregation_type)
 
     # Update articles table
     articles_records = articles_data.to_dict('records') if not articles_data.empty else []
@@ -560,18 +585,18 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             scatter_data,
             x='period',
             y='y_position',
-            hover_data=['title', 'published_date'],
+            hover_data=['title', 'published_at'],
             title=f'Articles Published by {period_label} (Each dot represents one article)'
         )
         fig.update_traces(
             marker=dict(size=8, opacity=0.7),
-            hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[1]}}<br>{period_label}: %{{x}}<extra></extra>',
-            customdata=scatter_data[['title', 'published_date', 'pk', 'url']].values
+            hovertemplate=f'<b>%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
+            customdata=scatter_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'country', 'industry_isic']].values
         )
 
         # Calculate data-driven range slider bounds
-        data_min_date = scatter_data['published_date'].min()
-        data_max_date = scatter_data['published_date'].max()
+        data_min_date = scatter_data['published_at'].min()
+        data_max_date = scatter_data['published_at'].max()
 
         # Set pre-selected range to last 2 years from data max date
         two_years_ago = data_max_date - pd.DateOffset(years=2)
@@ -580,9 +605,10 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
 
         # Configure range slider with custom settings
         fig.update_layout(
-            xaxis_title=f"{period_label} Starting",
-            yaxis_title=f"Articles in {period_label}",
-            yaxis=dict(tickmode='linear', dtick=1, range=[0.5, max(scatter_data['y_position']) + 1.5]),  # Start y-axis from 1 (0.5 padding)
+            xaxis_title=f"The bar shows the full history. Slide left and right to review the data in section",
+            yaxis_title=f"Articles per {period_label}",
+            yaxis=dict(tickmode='linear', dtick=1, range=[0.5, max(scatter_data['y_position']) + 1.5]),
+            # Start y-axis from 1 (0.5 padding)
             hovermode='closest',
             xaxis=dict(
                 type="date",
@@ -595,6 +621,24 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
                     bordercolor="rgb(204,204,204)",
                     range=[data_min_date, data_max_date],  # Full data range in slider
                     yaxis=dict(rangemode="fixed")  # Keep y-axis fixed when sliding
+                ),
+                # Add range buttons for quick navigation
+                rangeselector=dict(
+                    buttons=list([
+                        dict(count=3, label="3M", step="month", stepmode="backward"),
+                        dict(count=6, label="6M", step="month", stepmode="backward"),
+                        dict(count=1, label="1Y", step="year", stepmode="backward"),
+                        dict(count=2, label="2Y", step="year", stepmode="backward"),
+                        dict(step="all", label="All")
+                    ]),
+                    bgcolor="rgba(0,0,0,0.1)",
+                    bordercolor="rgb(204,204,204)",
+                    borderwidth=1,
+                    font=dict(size=12),
+                    x=0.01,
+                    y=0.99,
+                    xanchor="left",
+                    yanchor="top"
                 )
             ),
             # Add title with data range info
@@ -689,6 +733,7 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             filter_status, selected_article_pk or '', selected_company_pk or '',
             company_options, industry_options)
 
+
 @app.callback(
     [Output('company-filter', 'value'),
      Output('industry-filter', 'value')],
@@ -700,6 +745,7 @@ def clear_filters(n_clicks):
     if ctx.triggered and ctx.triggered[0]['prop_id'] == 'clear-filters.n_clicks' and n_clicks:
         return [None, None]
     return [dash.no_update, dash.no_update]
+
 
 # Callback for handling click events on scatter plot
 @app.callback(
@@ -715,44 +761,33 @@ def clear_filters(n_clicks):
 @log_callback_trigger
 def display_article_info(click_data, aggregation_type, company_filter, industry_filter, start_date, end_date):
     ctx = callback_context
-    
+
     # Only process if click data triggered the callback
     if not ctx.triggered or ctx.triggered[0]['prop_id'] != 'scatter-plot-chart.clickData':
         return html.Div()
-    
+
     if not click_data:
         return html.Div()
-    
+
     try:
         # Get the clicked point data
         point = click_data['points'][0]
         custom_data = point['customdata']
-        
+
         title = custom_data[0]
-        published_date = custom_data[1]
+        published_at = custom_data[1]
         pk = custom_data[2]
         url = custom_data[3]
-        
-        # Find the full article data
-        scatter_data = get_scatter_plot_data(company_filter, industry_filter, None, aggregation_type)
-        
-        # Apply date filtering if needed
-        if start_date and end_date and not scatter_data.empty:
-            start_datetime = pd.to_datetime(start_date).tz_localize('UTC')
-            end_datetime = pd.to_datetime(end_date).tz_localize('UTC') + pd.Timedelta(days=1)
-            scatter_data = scatter_data[
-                (scatter_data['published_date'] >= start_datetime) & 
-                (scatter_data['published_date'] < end_datetime)
-            ]
-        
+
         # Find the specific article
-        article_data = scatter_data[scatter_data['pk'] == pk]
-        
+        df = articles_df.copy()
+        article_data = df[df['pk'] == pk]
+
         if article_data.empty:
             return html.Div()
-        
+
         article = article_data.iloc[0]
-        
+
         # Create info box content
         info_box = dbc.Card([
             dbc.CardHeader([
@@ -765,7 +800,7 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
                 html.H6(title, className="card-title"),
                 html.P([
                     html.Strong("Published: "),
-                    pd.to_datetime(published_date).strftime('%Y-%m-%d %H:%M')
+                    pd.to_datetime(published_at).strftime('%Y-%m-%d %H:%M')
                 ], className="mb-2"),
                 html.P([
                     html.Strong("Article ID: "),
@@ -781,14 +816,15 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
                 ], className="mt-3") if url and url != 'nan' else html.Div()
             ])
         ], className="border-primary", style={"border-width": "2px"})
-        
+
         return info_box
-        
+
     except Exception as e:
         logging.error(f"Error displaying article info: {str(e)}")
         return html.Div([
             dbc.Alert("Error loading article information", color="danger")
         ])
+
 
 # Add a separate callback to clear the info box when filters change
 @app.callback(
@@ -803,6 +839,7 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
 @log_callback_trigger
 def clear_article_info_on_filter_change(company_filter, industry_filter, start_date, end_date, aggregation_type):
     return html.Div()
+
 
 
 if __name__ == '__main__':
