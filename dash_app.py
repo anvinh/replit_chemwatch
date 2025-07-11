@@ -219,78 +219,94 @@ app.layout = dbc.Container([
                         dbc.Label([
                             html.I(className="fas fa-calendar me-1"),
                             "Start Date"
-                        ], className="custom-label"),
-                        html.Div([
-                            dcc.DatePickerSingle(
-                                id='start-date-filter',
-                                date=(datetime.now() - pd.DateOffset(years=2)).date(),
-                                display_format='YYYY-MM-DD'
-                            )
-                        ], className="date-picker-container")
+                        ]),
+                        dcc.DatePickerSingle(
+                            id='start-date-filter',
+                            date=(datetime.now() - pd.DateOffset(years=2)).date(),
+                            display_format='YYYY-MM-DD',
+                            style={
+                                'width': '100%',
+                                'height': '38px',
+                                'border-radius': '0.375rem',
+                                'border': '1px solid #ced4da',
+                                'font-size': '1rem',
+                                'padding': '0.375rem 0.75rem'
+                            }
+                        )
                     ], className="mb-3"),
                     html.Div([
                         dbc.Label([
                             html.I(className="fas fa-calendar me-1"),
                             "End Date"
-                        ], className="custom-label"),
-                        html.Div([
-                            dcc.DatePickerSingle(
-                                id='end-date-filter',
-                                date=datetime.now().date(),
-                                display_format='YYYY-MM-DD'
-                            )
-                        ], className="date-picker-container")
+                        ]),
+                        dcc.DatePickerSingle(
+                            id='end-date-filter',
+                            date=datetime.now().date(),
+                            display_format='YYYY-MM-DD',
+                            style={
+                                'width': '100%',
+                                'height': '38px',
+                                'border-radius': '0.375rem',
+                                'border': '1px solid #ced4da',
+                                'font-size': '1rem',
+                                'padding': '0.375rem 0.75rem'
+                            }
+                        )
                     ], className="mb-3")
-                ], className="mb-4 pb-3 filter-section"),
+                ], className="mb-4 pb-3", style={'border-bottom': '1px solid #dee2e6'}),
 
                 # Company Filter
                 html.Div([
-                    dbc.Label([
-                        html.I(className="fas fa-building me-1"),
+                    dbc.Label(
                         "Company Filter"
-                    ], className="custom-label"),
-                    html.Div([
-                        dcc.Dropdown(
-                            id='company-filter',
-                            placeholder="Select company..."
-                        )
-                    ], className="dropdown-container")
+                    ),
+                    dcc.Dropdown(
+                        id='company-filter',
+                        placeholder="Select company...",
+                        style={
+                            'border': '1',
+                            'padding': '0',
+                            'outline': 'none'
+                        }
+                    )
                 ], className="mb-4"),
 
                 # Industry Filter
                 html.Div([
-                    dbc.Label([
-                        html.I(className="fas fa-industry me-1"),
+                    dbc.Label(
                         "Industry Filter"
-                    ], className="custom-label"),
-                    html.Div([
-                        dcc.Dropdown(
-                            id='industry-filter',
-                            placeholder="Select industry..."
-                        )
-                    ], className="dropdown-container")
+                    ),
+                    dcc.Dropdown(
+                        id='industry-filter',
+                        placeholder="Select industry...",
+                        style={
+                            'border': '1',
+                            'padding': '0',
+                            'outline': 'none'
+                        }
+                    )
                 ], className="mb-4"),
 
                 # Clear Filters Button
-                dbc.Button([
-                    html.I(className="fas fa-times me-2"),
+                dbc.Button(
                     "Clear Filters"
-                ], id="clear-filters", className="w-100 mb-3 btn-clear-filters"),
+                    , id="clear-filters", color="outline-secondary", className="w-100 mb-3"),
 
                 # Filter Status
-                html.Div(id="filter-status", className="filter-status")
-            ], className="p-3")
-        ], width=3, className="vh-100 position-fixed sidebar"),
+                html.Div(id="filter-status", className="text-muted small")
+            ], className="p-3 bg-light")
+        ], width=3, className="vh-100 position-fixed"),
 
         # Main Content
         dbc.Col([
             # Header
+            # html.Div(
             html.Div([
                 html.H1("PFAS Articles & Companies Dashboard"
                         , className="display-6"),
                 html.P("Monitor and analyze PFAS-related articles and company involvement",
                        className="text-muted")
-            ], className="main-header fade-in"),
+            ], className="my-16 bg-light"),
             # ),
 
             # Scatter Plot Chart
@@ -437,7 +453,7 @@ app.layout = dbc.Container([
                     )
                 ])
             ])
-        ], width=9, className="ms-auto main-content")
+        ], width=9, className="ms-auto")
     ]),
 
     # Hidden div to store selected article PK
@@ -750,35 +766,33 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
         article = article_data.iloc[0]
 
         # Create info box content
-        info_box = html.Div([
-            dbc.Card([
-                dbc.CardHeader([
-                    html.H6([
-                        html.I(className="fas fa-info-circle me-2"),
-                        "Article Details"
-                    ], className="mb-0")
-                ]),
-                dbc.CardBody([
-                    html.H6(title, className="card-title allianz-text-primary"),
-                    html.P([
-                        html.Strong("Published: "),
-                        pd.to_datetime(published_at).strftime('%Y-%m-%d %H:%M')
-                    ], className="mb-2"),
-                    html.P([
-                        html.Strong("Article ID: "),
-                        pk
-                    ], className="mb-2"),
-                    html.Div([
-                        html.A(
-                            [html.I(className="fas fa-external-link-alt me-2"), "Read Full Article"],
-                            href=url,
-                            target="_blank",
-                            className="btn btn-primary btn-sm"
-                        )
-                    ], className="mt-3") if url and url != 'nan' else html.Div()
-                ])
+        info_box = dbc.Card([
+            dbc.CardHeader([
+                html.H6([
+                    html.I(className="fas fa-info-circle me-2"),
+                    "Article Details"
+                ], className="mb-0")
+            ]),
+            dbc.CardBody([
+                html.H6(title, className="card-title"),
+                html.P([
+                    html.Strong("Published: "),
+                    pd.to_datetime(published_at).strftime('%Y-%m-%d %H:%M')
+                ], className="mb-2"),
+                html.P([
+                    html.Strong("Article ID: "),
+                    pk
+                ], className="mb-2"),
+                html.Div([
+                    html.A(
+                        [html.I(className="fas fa-external-link-alt me-2"), "Read Full Article"],
+                        href=url,
+                        target="_blank",
+                        className="btn btn-primary btn-sm"
+                    )
+                ], className="mt-3") if url and url != 'nan' else html.Div()
             ])
-        ], className="article-info-box fade-in")
+        ], className="border-primary", style={"border-width": "2px"})
 
         return info_box
 
