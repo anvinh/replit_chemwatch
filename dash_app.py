@@ -14,8 +14,8 @@ import numpy as np
 logging.basicConfig(level=logging.DEBUG)
 
 # Load data from CSV files
-articles_df = pd.read_csv('attached_assets/temp_article_df_1751374177682.csv')
-companies_df = pd.read_csv('attached_assets/temp_company_level_df_1751374177683.csv')
+articles_df = pd.read_csv('attached_assets/temp_chemwatch_all_articles_dev.csv')
+companies_df = pd.read_csv('attached_assets/temp_chemwatch_all_companies_dev.csv')
 
 # Parse date columns
 articles_df['published_at'] = pd.to_datetime(articles_df['published_at'], errors='coerce')
@@ -34,10 +34,10 @@ def get_articles(company_filter=None, industry_filter=None):
             # Find companies that match the filter and get their associated articles by pk
             company_pks = companies_df[
                 companies_df['company_name'].str.contains(company_filter, case=False, na=False)
-            ]['pk'].tolist()
+            ]['primary_key'].tolist()
 
             if company_pks:
-                df = df[df['pk'].isin(company_pks)]
+                df = df[df['primary_key'].isin(company_pks)]
             else:
                 return pd.DataFrame()  # No matching companies found
 
@@ -51,7 +51,7 @@ def get_articles(company_filter=None, industry_filter=None):
         data = []
         for _, article in df.iterrows():
             data.append({
-                'PK': str(article['pk']),
+                'PK': str(article['primary_key']),
                 'Article ID': str(article['article_id']) if pd.notna(article['article_id']) else '',
                 'Title': str(article['title']) if pd.notna(article['title']) else '',
                 'URL': str(article['url']) if pd.notna(article['url']) else '',
@@ -75,7 +75,7 @@ def get_companies(article_filter=None):
 
         if article_filter:
             # Filter companies based on article pk
-            df = df[df['pk'] == article_filter]
+            df = df[df['primary_key'] == article_filter]
 
         # Sort by company name
         df = df.sort_values('company_name', na_position='last')
@@ -99,7 +99,7 @@ def get_companies(article_filter=None):
                         settlement_amount = f"{currency} {amount_str}".strip()
 
             data.append({
-                'PK': str(company['pk']),
+                'PK': str(company['primary_key']),
                 'Company Name': str(company['company_name']) if pd.notna(company['company_name']) else '',
                 'Litigation Reason': str(company['litigation_reason']) if pd.notna(
                     company['litigation_reason']) else '',
@@ -118,52 +118,58 @@ def get_companies(article_filter=None):
 
 
 def get_scatter_plot_data(company_filter=None, industry_filter=None, article_filter=None, aggregation_type="weekly"):
-    """Get data for scatter plot showing articles published per week or month with liability types"""
+    """Get data for scatter plot showing articles published per week or month"""
     try:
-        df = articles_df.copy()
+        art_df = articles_df.copy()
+        com_df = companies_df.copy()
 
         if company_filter:
-            company_pks = companies_df[
-                companies_df['company_name'].str.contains(company_filter, case=False, na=False)
-            ]['pk'].tolist()
+            company_pks = companies_df[companies_df['company_name']==company_filter]['primary_key'].tolist()
 
             if company_pks:
-                df = df[df['pk'].isin(company_pks)]
+                art_df = art_df[art_df['primary_key'].isin(company_pks)]
             else:
                 return pd.DataFrame()
 
         if industry_filter:
-            df = df[df['isic_name'] == industry_filter]
+            art_df = art_df[art_df['isic_name'] == industry_filter]
 
         if article_filter:
-            df = df[df['pk'] == article_filter]
+            art_df = art_df[art_df['primary_key'] == article_filter]
 
         # Filter out rows with null published_at
-        df = df[pd.notna(df['published_at'])]
+        art_df = art_df[pd.notna(art_df['published_at'])]
+
+        fill_values = {
+            'company_name': '-',
+            'litigation_reason': '-',
+            'claim_category': '-',
+            'source_of_pfas': '-',
+            'settlement_finalized': False,
+            'settlement_amount': 0,
+            'settlement_paid_date': '-',
+        }
+
+        grouped_com_df = com_df.fillna(value=fill_values).groupby('primary_key').agg({
+            'company_name': lambda x: ', '.join(sorted(set(x))),
+            'litigation_reason': lambda x: ', '.join(sorted(set(x))),
+            'claim_category': lambda x: ', '.join(sorted(set(x))),
+            'source_of_pfas': lambda x: ', '.join(sorted(set(x))),
+            'settlement_finalized': 'any',
+            'settlement_amount': 'sum',
+            'settlement_paid_date': lambda x: ', '.join(sorted(set(x))),
+        })
 
         # Join with companies data to get liability information
-        df_with_liability = df.merge(
-            companies_df[['pk', 'claim_category']], 
-            on='pk', 
+        df = art_df.merge(
+            grouped_com_df,
+            on='primary_key',
             how='left'
         )
 
-        # Map claim categories to liability types
-        def map_liability_type(claim_category):
-            if pd.isna(claim_category):
-                return 'Unknown'
-            claim_str = str(claim_category).lower()
-            if 'environmental' in claim_str:
-                return 'Environmental Liability'
-            elif 'product' in claim_str:
-                return 'Product Liability'
-            else:
-                return 'Other Liability'
-
-        df_with_liability['liability_type'] = df_with_liability['claim_category'].apply(map_liability_type)
 
         data = []
-        for _, article in df_with_liability.iterrows():
+        for _, article in df.iterrows():
             if aggregation_type == "weekly":
                 # Get the start of the week (Monday)
                 period_start = article['published_at'] - pd.Timedelta(days=article['published_at'].weekday())
@@ -188,26 +194,21 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
                 'period': period_key,
                 'title': str(article['title']) if pd.notna(article['title']) else '',
                 'published_at': article['published_at'],
-                'pk': str(article['pk']),
+                'primary_key': str(article['primary_key']),
                 'url': article['url'],
                 'published_on': article['published_at'].strftime('%Y-%m-%d'),
                 'country': article['country_code'],  # TODO: return country name from country code
                 'industry_isic': article['isic_name'],
                 'period_name': period_name,
-                'liability_type': article['liability_type'],
-                'claim_category': str(article['claim_category']) if pd.notna(article['claim_category']) else 'Unknown'
+
             })
 
         plot_df = pd.DataFrame(data)
         if not plot_df.empty:
-            # Group by period and liability type, then sort by liability type and published date
-            def assign_positions(group):
-                # Sort by liability type first, then by published date
-                sorted_group = group.sort_values(['liability_type', 'published_at'])
-                sorted_group = sorted_group.assign(y_position=range(1, len(sorted_group) + 1))
-                return sorted_group
-            
-            plot_df_grouped = plot_df.groupby('period').apply(assign_positions, include_groups=False).reset_index()
+            # Group by period and add vertical positioning for dots (starting from 1)
+            plot_df_grouped = plot_df.groupby('period').apply(lambda x: x.sort_values('published_at').assign(
+                y_position=range(1, len(x) + 1)
+            ), include_groups=False).reset_index()
             return plot_df_grouped
 
         return pd.DataFrame()
@@ -649,27 +650,20 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
         #         (scatter_data['published_at'] < end_datetime)
         #     ]
 
-        # Define colors for liability types
-        liability_colors = {
-            'Environmental Liability': '#e74c3c',  # Red
-            'Product Liability': '#3498db',        # Blue
-            'Other Liability': '#f39c12',          # Orange
-            'Unknown': '#95a5a6'                   # Gray
-        }
-        
         fig = px.scatter(
             scatter_data,
             x='period',
             y='y_position',
-            color='liability_type',
-            color_discrete_map=liability_colors,
-            hover_data=['title', 'published_at', 'liability_type'],
-            title=f'Articles Published by {period_label} - Colored by Liability Type'
+            hover_data=['title', 'published_at'],
+            title=f'Articles Published by {period_label} (Each dot represents one article)'
         )
         fig.update_traces(
             marker=dict(size=8, opacity=0.7),
-            hovertemplate=f'<b style="display: inline-block; max-width: 600px; word-wrap: break-word; white-space: normal;">%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<br>Liability Type: %{{customdata[6]}}<br>Claim Category: %{{customdata[7]}}<extra></extra>',
-            customdata=scatter_data[['title', 'published_at', 'pk', 'url', 'published_on', 'period_name', 'liability_type', 'claim_category']].values
+            #TODO: wrap text does not work with <b style="display: inline-block; max-width: 600px; word-wrap: break-word; white-space: normal;">
+            hovertemplate=f'<b style="display: inline-block; max-width: 600px; word-wrap: break-word; white-space: normal;">%{{customdata[0]}}</b><br>Published: %{{customdata[4]}}<br>{period_label}: %{{customdata[5]}}<extra></extra>',
+            customdata=scatter_data[['title', 'published_at', 'primary_key', 'url', 'published_on', 'period_name',
+                                     'country', 'industry_isic', 'company_name', 'litigation_reason', 'claim_category',
+                                     'source_of_pfas', 'settlement_finalized', 'settlement_amount', 'settlement_paid_date']].values
         )
 
         # Configure range slider with custom settings
@@ -726,20 +720,9 @@ def update_dashboard(company_filter, industry_filter, selected_article_rows, sel
             ),
             # Add title with data range info
             title=dict(
-                text=f'{period_label}ly Articles Published - Colored by Liability Type<br><sub>Data Range: {data_min_date.strftime("%Y-%m-%d")} to {data_max_date.strftime("%Y-%m-%d")} | Showing: {preselected_start.strftime("%Y-%m-%d")} to {preselected_end.strftime("%Y-%m-%d")}</sub>',
+                text=f'{period_label}ly Articles Published<br><sub>Data Range: {data_min_date.strftime("%Y-%m-%d")} to {data_max_date.strftime("%Y-%m-%d")} | Showing: {preselected_start.strftime("%Y-%m-%d")} to {preselected_end.strftime("%Y-%m-%d")}</sub>',
                 x=0.5,
                 font=dict(size=16)
-            ),
-            # Configure legend
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                bgcolor="rgba(255,255,255,0.8)",
-                bordercolor="rgba(0,0,0,0.2)",
-                borderwidth=1
             ),
 
         )
@@ -821,35 +804,25 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
         published_at = custom_data[1]
         pk = custom_data[2]
         url = custom_data[3]
+        country = custom_data[6]
+        industry_isic = custom_data[7]
+        company_name = custom_data[8]
+        litigation_reason = custom_data[9]
+        claim_category = custom_data[10]
+        source_of_pfas = custom_data[11]
+        settlement_finalized = custom_data[12]
+        settlement_amount = custom_data[13]
+        settlement_paid_date = custom_data[14]
 
         # Find the specific article
         df = articles_df.copy()
-        article_data = df[df['pk'] == pk]
+        article_data = df[df['primary_key'] == pk]
 
         if article_data.empty:
             return html.Div()
 
         article = article_data.iloc[0]
 
-        # Get liability information from scatter data
-        scatter_data = get_scatter_plot_data(company_filter, industry_filter, None, aggregation_type)
-        liability_info = "Unknown"
-        claim_category = "Unknown"
-        
-        if not scatter_data.empty:
-            article_info = scatter_data[scatter_data['pk'] == pk]
-            if not article_info.empty:
-                liability_info = article_info.iloc[0]['liability_type']
-                claim_category = article_info.iloc[0]['claim_category']
-
-        # Define color for liability type badge
-        liability_colors = {
-            'Environmental Liability': 'danger',
-            'Product Liability': 'primary', 
-            'Other Liability': 'warning',
-            'Unknown': 'secondary'
-        }
-        
         # Create info box content
         info_box = dbc.Card([
             dbc.CardHeader([
@@ -863,14 +836,6 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
                 html.P([
                     html.Strong("Published: "),
                     pd.to_datetime(published_at).strftime('%Y-%m-%d %H:%M')
-                ], className="mb-2"),
-                html.P([
-                    html.Strong("Article ID: "),
-                    pk
-                ], className="mb-2"),
-                html.P([
-                    html.Strong("Liability Type: "),
-                    dbc.Badge(liability_info, color=liability_colors.get(liability_info, 'secondary'), className="me-2")
                 ], className="mb-2"),
                 html.P([
                     html.Strong("Claim Category: "),
@@ -925,6 +890,7 @@ def sync_date_filters_with_range_slider(relayout_data):
 @log_callback_trigger
 def clear_article_info_on_filter_change(company_filter, industry_filter, start_date, end_date, aggregation_type):
     return html.Div()
+
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=5000, debug=True)
