@@ -200,7 +200,13 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
                 'country': article['country_code'],  # TODO: return country name from country code
                 'industry_isic': article['isic_name'],
                 'period_name': period_name,
-
+                'company_name': article['company_name'],
+                'litigation_reason': article['litigation_reason'],
+                'claim_category': article['claim_category'],
+                'source_of_pfas': article['source_of_pfas'],
+                'settlement_finalized': article['settlement_finalized'],
+                'settlement_amount': article['settlement_amount'],
+                'settlement_paid_date': article['settlement_paid_date'],
             })
 
         plot_df = pd.DataFrame(data)
@@ -832,25 +838,36 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
                 ], className="mb-0")
             ]),
             dbc.CardBody([
-                html.H6(title, className="card-title"),
-                html.P([
-                    html.Strong("Published: "),
-                    pd.to_datetime(published_at).strftime('%Y-%m-%d %H:%M')
-                ], className="mb-2"),
-                html.P([
-                    html.Strong("Claim Category: "),
-                    claim_category
-                ], className="mb-2"),
-                html.Div([
-                    html.A(
-                        [html.I(className="fas fa-external-link-alt me-2"), "Read Full Article"],
-                        href=url,
-                        target="_blank",
-                        className="btn btn-primary btn-sm"
-                    )
-                ], className="mt-3") if url and url != 'nan' else html.Div()
+                dbc.Row([
+                    dbc.Col([
+                        html.H6(title, className="card-title")
+                    ], width=6),
+                    dbc.Col([
+                        html.P([
+                            html.Strong("Published: "),
+                            pd.to_datetime(published_at).strftime('%Y-%m-%d %H:%M')
+                        ], className="mb-2")
+                    ], width=6)
+                ]),
+                dbc.Row([
+                    dbc.Col([
+                        html.P([
+                            html.Strong("Claim Category: "),
+                            claim_category
+                        ], className="mb-2")
+                    ], width=6),
+                    dbc.Col([
+                        html.Div([
+                            html.A(
+                                [html.I(className="fas fa-external-link-alt me-2"), "Read Full Article"],
+                                href=url,
+                                target="_blank",
+                                className="btn btn-primary btn-sm"
+                            )
+                        ], className="mt-3") if url and url != 'nan' else html.Div()
+                    ], width=6)
+                ])
             ])
-        ], className="border-primary", style={"borderWidth": "2px"})
 
         return info_box
 
@@ -890,6 +907,7 @@ def sync_date_filters_with_range_slider(relayout_data):
 @log_callback_trigger
 def clear_article_info_on_filter_change(company_filter, industry_filter, start_date, end_date, aggregation_type):
     return html.Div()
+
 
 
 if __name__ == '__main__':
