@@ -868,8 +868,6 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
                     ], width=6)
                 ])
             ])
-            ])
-        ])
 
         return info_box
 
