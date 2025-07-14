@@ -747,7 +747,7 @@ def log_callback_trigger(func):
     ],
     prevent_initial_call=False,
 )
-def update_aggregation_type(weekly_clicks, monthly_clicks):
+def update_aggregation_type(weekly_clicks, monthly_clicks, quarterly_clicks):
     ctx = callback_context
     if not ctx.triggered:
         return "monthly", "outline-primary", "primary", "outline-primary"
