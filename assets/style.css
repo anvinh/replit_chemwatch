@@ -239,6 +239,14 @@ body {
     box-shadow: 0 4px 12px var(--allianz-shadow) !important;
 }
 
+.Select-option {
+    line-height: 1.2 !important;
+    padding: 8px 12px !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+}
+
 .Select-option:hover {
     background-color: var(--allianz-light-gray) !important;
     color: var(--allianz-text-dark) !important;
