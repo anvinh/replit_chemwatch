@@ -226,6 +226,7 @@ def get_scatter_plot_data(company_filter=None, industry_filter=None, article_fil
 def get_company_options():
     """Get options for company dropdown"""
     company_names = companies_df['company_name'].unique()
+    company_names = sorted(company_names)
     options = [{'label': company, 'value': company} for company in company_names]
     return options
 
@@ -233,6 +234,7 @@ def get_company_options():
 def get_industry_options():
     """Get options for industry dropdown"""
     industry_names = articles_df['isic_name'].unique()
+    industry_names = sorted(industry_names)
     options = [{'label': industry, 'value': industry} for industry in industry_names]
     return options
 
@@ -832,39 +834,56 @@ def display_article_info(click_data, aggregation_type, company_filter, industry_
         # Create info box content
         info_box = dbc.Card([
             dbc.CardHeader([
-                html.H6([
-                    html.I(className="fas fa-info-circle me-2"),
-                    "Article Details"
-                ], className="mb-0")
-            ]),
+                html.H5(title, className="mb-0")
+            ], className="bg-transparent"),
             dbc.CardBody([
+                # dbc.Row([
+                #     dbc.Col([
+                #         html.H3(title, className="card-title")
+                #     ], width=12),
+                # ]),
                 dbc.Row([
-                    dbc.Col([
-                        html.H6(title, className="card-title")
-                    ], width=6),
                     dbc.Col([
                         html.P([
                             html.Strong("Published: "),
                             pd.to_datetime(published_at).strftime('%Y-%m-%d %H:%M')
-                        ], className="mb-2")
-                    ], width=6)
-                ]),
-                dbc.Row([
-                    dbc.Col([
+                        ], className="mb-2"),
                         html.P([
                             html.Strong("Claim Category: "),
                             claim_category
-                        ], className="mb-2")
+                        ], className="mb-2"),
+                        html.P([
+                            html.Strong("Litigation Reasons: "),
+                            litigation_reason
+                        ], className="mb-2"),
+                        html.P([
+                            html.Strong("Source of PFAS: "),
+                            source_of_pfas
+                        ], className="mb-2"),
+                        html.A(
+                            [html.I(className="fas fa-external-link-alt me-2"), "Read Full Article"],
+                            href=url,
+                            target="_blank",
+                            className="btn btn-primary btn-sm"
+                        )
                     ], width=6),
                     dbc.Col([
-                        html.Div([
-                            html.A(
-                                [html.I(className="fas fa-external-link-alt me-2"), "Read Full Article"],
-                                href=url,
-                                target="_blank",
-                                className="btn btn-primary btn-sm"
-                            )
-                        ], className="mt-3") if url and url != 'nan' else html.Div()
+                        html.P([
+                            html.Strong("Companies: "),
+                            company_name
+                        ], className="mb-2"),
+                        html.P([
+                            html.Strong("Is Settlement finalized?: "),
+                            "Yes" if settlement_finalized else "No"
+                        ], className="mb-2"),
+                        html.P([
+                            html.Strong("Settlement Amount: "),
+                            settlement_amount
+                        ], className="mb-2"),
+                        html.P([
+                            html.Strong("Settlement Paid Date: "),
+                            "not reported" if settlement_paid_date == "-" else settlement_paid_date
+                        ], className="mb-2"),
                     ], width=6)
                 ])
             ])
@@ -907,7 +926,6 @@ def sync_date_filters_with_range_slider(relayout_data):
 @log_callback_trigger
 def clear_article_info_on_filter_change(company_filter, industry_filter, start_date, end_date, aggregation_type):
     return html.Div()
-
 
 
 if __name__ == '__main__':
