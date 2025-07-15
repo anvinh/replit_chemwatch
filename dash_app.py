@@ -2,6 +2,8 @@
 import logging
 import os
 from datetime import datetime
+import io
+import base64
 
 import dash
 import dash_bootstrap_components as dbc
@@ -503,7 +505,19 @@ app.layout = dbc.Container(
                                                     ],
                                                     className="mb-0",
                                                 ),
-                                                dbc.Badge(id="article-count", color="primary"),
+                                                html.Div(
+                                                    [
+                                                        dbc.Badge(id="article-count", color="primary", className="me-2"),
+                                                        dbc.Button(
+                                                            [html.I(className="fas fa-download me-1"), "Excel"],
+                                                            id="download-articles-btn",
+                                                            color="outline-light",
+                                                            size="sm",
+                                                        ),
+                                                        dcc.Download(id="download-articles"),
+                                                    ],
+                                                    className="d-flex align-items-center",
+                                                ),
                                             ],
                                             className="d-flex justify-content-between align-items-center",
                                         ),
@@ -608,9 +622,18 @@ app.layout = dbc.Container(
                                                     ],
                                                     className="mb-0",
                                                 ),
-                                                dbc.Badge(
-                                                    id="company-count",
-                                                    color="secondary",
+                                                html.Div(
+                                                    [
+                                                        dbc.Badge(id="company-count", color="secondary", className="me-2"),
+                                                        dbc.Button(
+                                                            [html.I(className="fas fa-download me-1"), "Excel"],
+                                                            id="download-companies-btn",
+                                                            color="outline-light",
+                                                            size="sm",
+                                                        ),
+                                                        dcc.Download(id="download-companies"),
+                                                    ],
+                                                    className="d-flex align-items-center",
                                                 ),
                                             ],
                                             className="d-flex justify-content-between align-items-center",
@@ -1239,6 +1262,158 @@ def clear_article_info_on_filter_change(
     aggregation_type,
 ):
     return html.Div()
+
+
+# Callback for downloading articles data
+@app.callback(
+    Output("download-articles", "data"),
+    [Input("download-articles-btn", "n_clicks")],
+    [
+        Input("company-filter", "value"),
+        Input("industry-filter", "value"),
+        Input("articles-table", "filter_query"),
+    ],
+    prevent_initial_call=True,
+)
+@log_callback_trigger
+def download_articles_data(n_clicks, company_filter, industry_filter, filter_query):
+    if not n_clicks:
+        return dash.no_update
+    
+    # Get the filtered articles data
+    articles_data = get_articles(company_filter, industry_filter)
+    
+    if articles_data.empty:
+        return dash.no_update
+    
+    # Apply DataTable column filters if they exist
+    if filter_query:
+        # Parse the filter query and apply it to the dataframe
+        # This is a simplified implementation - in practice you might want more robust parsing
+        try:
+            # Convert filter query to pandas query format
+            # Dash DataTable uses a specific syntax that needs to be converted
+            filtered_data = articles_data.copy()
+            
+            # Split filter query by " && " to handle multiple column filters
+            if " && " in filter_query:
+                conditions = filter_query.split(" && ")
+            else:
+                conditions = [filter_query]
+            
+            for condition in conditions:
+                if " contains " in condition:
+                    # Handle "contains" operations
+                    parts = condition.split(" contains ")
+                    if len(parts) == 2:
+                        column_name = parts[0].strip("{}")
+                        search_value = parts[1].strip('""').lower()
+                        if column_name in filtered_data.columns:
+                            filtered_data = filtered_data[
+                                filtered_data[column_name].astype(str).str.lower().str.contains(search_value, na=False)
+                            ]
+                elif " = " in condition:
+                    # Handle exact match operations
+                    parts = condition.split(" = ")
+                    if len(parts) == 2:
+                        column_name = parts[0].strip("{}")
+                        search_value = parts[1].strip('""')
+                        if column_name in filtered_data.columns:
+                            filtered_data = filtered_data[filtered_data[column_name] == search_value]
+            
+            articles_data = filtered_data
+        except Exception as e:
+            logging.error(f"Error applying filter query: {str(e)}")
+            # If filtering fails, use unfiltered data
+            pass
+    
+    # Remove the PK column for export (it's hidden in the UI)
+    export_data = articles_data.drop(columns=['PK'], errors='ignore')
+    
+    # Create Excel file in memory
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        export_data.to_excel(writer, sheet_name='Articles', index=False)
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"articles_export_{timestamp}.xlsx"
+    
+    return dcc.send_bytes(output.getvalue(), filename)
+
+
+# Callback for downloading companies data
+@app.callback(
+    Output("download-companies", "data"),
+    [Input("download-companies-btn", "n_clicks")],
+    [
+        Input("selected-article-pk", "children"),
+        Input("companies-table", "filter_query"),
+    ],
+    prevent_initial_call=True,
+)
+@log_callback_trigger
+def download_companies_data(n_clicks, selected_article_pk, filter_query):
+    if not n_clicks:
+        return dash.no_update
+    
+    # Get the filtered companies data
+    companies_data = get_companies(selected_article_pk if selected_article_pk else None)
+    
+    if companies_data.empty:
+        return dash.no_update
+    
+    # Apply DataTable column filters if they exist
+    if filter_query:
+        try:
+            # Convert filter query to pandas query format
+            filtered_data = companies_data.copy()
+            
+            # Split filter query by " && " to handle multiple column filters
+            if " && " in filter_query:
+                conditions = filter_query.split(" && ")
+            else:
+                conditions = [filter_query]
+            
+            for condition in conditions:
+                if " contains " in condition:
+                    # Handle "contains" operations
+                    parts = condition.split(" contains ")
+                    if len(parts) == 2:
+                        column_name = parts[0].strip("{}")
+                        search_value = parts[1].strip('""').lower()
+                        if column_name in filtered_data.columns:
+                            filtered_data = filtered_data[
+                                filtered_data[column_name].astype(str).str.lower().str.contains(search_value, na=False)
+                            ]
+                elif " = " in condition:
+                    # Handle exact match operations
+                    parts = condition.split(" = ")
+                    if len(parts) == 2:
+                        column_name = parts[0].strip("{}")
+                        search_value = parts[1].strip('""')
+                        if column_name in filtered_data.columns:
+                            filtered_data = filtered_data[filtered_data[column_name] == search_value]
+            
+            companies_data = filtered_data
+        except Exception as e:
+            logging.error(f"Error applying filter query: {str(e)}")
+            # If filtering fails, use unfiltered data
+            pass
+    
+    # Remove the PK column for export (it's hidden in the UI)
+    export_data = companies_data.drop(columns=['PK'], errors='ignore')
+    
+    # Create Excel file in memory
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        export_data.to_excel(writer, sheet_name='Companies', index=False)
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"companies_export_{timestamp}.xlsx"
+    
+    return dcc.send_bytes(output.getvalue(), filename)
 
 
 if __name__ == '__main__':
