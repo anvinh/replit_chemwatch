@@ -1,0 +1,4 @@
+
+username,password,name,email,is_approved
+admin,admin123,Admin User,admin@company.com,true
+demo,demo123,Demo User,demo@company.com,true

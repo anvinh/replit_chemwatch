@@ -2,19 +2,21 @@
 import logging
 import os
 from datetime import datetime
+import hashlib
 
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Input, Output, callback_context, dash_table, dcc, html
-
-# pg = PostgresService(schema="chemwatch")
-# pg.do_read(query, use_env_suffix = True)
+from dash import Input, Output, callback_context, dash_table, dcc, html, State
+from dash.exceptions import PreventUpdate
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+
+# Simple session storage (in production, use proper session management)
+user_sessions = {}
 
 # Load data from CSV files
 articles_df = pd.read_csv("attached_assets/temp_chemwatch_all_articles_dev.csv")
@@ -26,7 +28,92 @@ articles_df["modified_at"] = pd.to_datetime(articles_df["modified_at"], errors="
 
 # Create Dash app with Bootstrap theme
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-server = app.server  # maybe replace by init_login_manager() from Hercules
+server = app.server
+
+# Authentication functions
+def load_users():
+    """Load users from CSV file"""
+    try:
+        return pd.read_csv("attached_assets/users.csv")
+    except FileNotFoundError:
+        # Create default users file if it doesn't exist
+        default_users = pd.DataFrame({
+            'username': ['admin', 'demo'],
+            'password': ['admin123', 'demo123'],
+            'name': ['Admin User', 'Demo User'],
+            'email': ['admin@company.com', 'demo@company.com'],
+            'is_approved': [True, True]
+        })
+        default_users.to_csv("attached_assets/users.csv", index=False)
+        return default_users
+
+def authenticate_user(username, password):
+    """Authenticate user with username and password"""
+    users_df = load_users()
+    user = users_df[(users_df['username'] == username) & (users_df['password'] == password)]
+    if not user.empty and user.iloc[0]['is_approved']:
+        return user.iloc[0].to_dict()
+    return None
+
+def is_authenticated(session_id):
+    """Check if session is authenticated"""
+    return session_id in user_sessions
+
+def create_session(user_data):
+    """Create a new session for authenticated user"""
+    session_id = hashlib.md5(f"{user_data['username']}{datetime.now()}".encode()).hexdigest()
+    user_sessions[session_id] = user_data
+    return session_id
+
+def get_user_from_session(session_id):
+    """Get user data from session"""
+    return user_sessions.get(session_id)
+
+def create_login_layout():
+    """Create login page layout"""
+    return dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H2("ChemWatch Login", className="text-center mb-4"),
+                        dbc.Input(
+                            id="username-input",
+                            placeholder="Username",
+                            type="text",
+                            className="mb-3"
+                        ),
+                        dbc.Input(
+                            id="password-input",
+                            placeholder="Password",
+                            type="password",
+                            className="mb-3"
+                        ),
+                        dbc.Button(
+                            "Login",
+                            id="login-button",
+                            color="primary",
+                            className="w-100 mb-3"
+                        ),
+                        dbc.Alert(
+                            id="login-alert",
+                            is_open=False,
+                            duration=4000,
+                            color="danger"
+                        ),
+                        html.Div([
+                            html.P("Demo credentials:", className="mt-3 mb-1"),
+                            html.Small("Username: admin, Password: admin123", className="text-muted d-block"),
+                            html.Small("Username: demo, Password: demo123", className="text-muted")
+                        ])
+                    ])
+                ], style={"max-width": "400px"})
+            ], width=12, className="d-flex justify-content-center align-items-center", style={"min-height": "100vh"})
+        ])
+    ], fluid=True)
+
+def create_dashboard_layout():
+    """Create main dashboard layout"""
 
 
 def get_articles(company_filter=None, industry_filter=None):
@@ -299,8 +386,7 @@ def get_industry_options():
     return options
 
 
-# App layout
-app.layout = dbc.Container(
+return dbc.Container(
     [
         dbc.Row(
             [
@@ -715,10 +801,72 @@ app.layout = dbc.Container(
         html.Div(id="selected-company-pk", style={"display": "none"}),
         # Hidden div to store aggregation type
         html.Div(id="aggregation-type", children="monthly", style={"display": "none"}),
+        # Logout button
+        html.Div([
+            dbc.Button("Logout", id="logout-button", color="secondary", size="sm", className="position-fixed", 
+                      style={"top": "10px", "right": "10px", "z-index": "1000"})
+        ])
     ],
     fluid=True,
 )
 
+# App layout with authentication
+app.layout = html.Div([
+    dcc.Location(id="url", refresh=False),
+    dcc.Store(id="session-store", storage_type="session"),
+    html.Div(id="page-content")
+])
+
+
+# Authentication callbacks
+@app.callback(
+    Output("page-content", "children"),
+    Input("url", "pathname"),
+    State("session-store", "data")
+)
+def display_page(pathname, session_data):
+    """Display login or dashboard based on authentication"""
+    if session_data and is_authenticated(session_data.get("session_id")):
+        return create_dashboard_layout()
+    else:
+        return create_login_layout()
+
+@app.callback(
+    [Output("session-store", "data"),
+     Output("login-alert", "children"),
+     Output("login-alert", "is_open"),
+     Output("url", "pathname", allow_duplicate=True)],
+    Input("login-button", "n_clicks"),
+    [State("username-input", "value"),
+     State("password-input", "value")],
+    prevent_initial_call=True
+)
+def handle_login(n_clicks, username, password):
+    """Handle login authentication"""
+    if not n_clicks:
+        raise PreventUpdate
+    
+    if not username or not password:
+        return None, "Please enter both username and password", True, "/"
+    
+    user_data = authenticate_user(username, password)
+    if user_data:
+        session_id = create_session(user_data)
+        return {"session_id": session_id, "user": user_data}, "", False, "/"
+    else:
+        return None, "Invalid username or password", True, "/"
+
+@app.callback(
+    [Output("session-store", "data", allow_duplicate=True),
+     Output("url", "pathname", allow_duplicate=True)],
+    Input("logout-button", "n_clicks"),
+    prevent_initial_call=True
+)
+def handle_logout(n_clicks):
+    """Handle logout"""
+    if not n_clicks:
+        raise PreventUpdate
+    return None, "/"
 
 # Define a decorator for logging callback trigger
 def log_callback_trigger(func):
@@ -790,6 +938,7 @@ def update_aggregation_type(weekly_clicks, monthly_clicks, quarterly_clicks):
         Input("start-date-filter", "date"),
         Input("end-date-filter", "date"),
     ],
+    [State("session-store", "data")],
     prevent_initial_call=False,
 )
 @log_callback_trigger
@@ -802,7 +951,11 @@ def update_dashboard(
     aggregation_type,
     start_date,
     end_date,
+    session_data,
 ):
+    # Check authentication
+    if not session_data or not is_authenticated(session_data.get("session_id")):
+        raise PreventUpdate
     ctx = callback_context
 
     # Handle clear filters: when only the button "clear filters" is clicked
@@ -1031,9 +1184,14 @@ def update_dashboard(
 @app.callback(
     [Output("company-filter", "value"), Output("industry-filter", "value")],
     [Input("clear-filters", "n_clicks")],
+    [State("session-store", "data")],
 )
 @log_callback_trigger
-def clear_filters(n_clicks):
+def clear_filters(n_clicks, session_data):
+    # Check authentication
+    if not session_data or not is_authenticated(session_data.get("session_id")):
+        raise PreventUpdate
+    
     ctx = callback_context
     if ctx.triggered and ctx.triggered[0]["prop_id"] == "clear-filters.n_clicks" and n_clicks:
         return [None, None]
@@ -1051,6 +1209,7 @@ def clear_filters(n_clicks):
         Input("start-date-filter", "date"),
         Input("end-date-filter", "date"),
     ],
+    [State("session-store", "data")],
     prevent_initial_call=True,
 )
 @log_callback_trigger
@@ -1061,7 +1220,11 @@ def display_article_info(
     industry_filter,
     start_date,
     end_date,
+    session_data,
 ):
+    # Check authentication
+    if not session_data or not is_authenticated(session_data.get("session_id")):
+        raise PreventUpdate
     ctx = callback_context
 
     # Only process if click data triggered the callback
@@ -1207,10 +1370,15 @@ def display_article_info(
 @app.callback(
     [Output("start-date-filter", "date"), Output("end-date-filter", "date")],
     [Input("scatter-plot-chart", "relayoutData")],
+    [State("session-store", "data")],
     prevent_initial_call=True,
 )
 @log_callback_trigger
-def sync_date_filters_with_range_slider(relayout_data):
+def sync_date_filters_with_range_slider(relayout_data, session_data):
+    # Check authentication
+    if not session_data or not is_authenticated(session_data.get("session_id")):
+        raise PreventUpdate
+    
     if relayout_data and "xaxis.range[0]" in relayout_data and "xaxis.range[1]" in relayout_data:
         start_date = pd.to_datetime(relayout_data["xaxis.range[0]"]).date()
         end_date = pd.to_datetime(relayout_data["xaxis.range[1]"]).date()
@@ -1228,6 +1396,7 @@ def sync_date_filters_with_range_slider(relayout_data):
         Input("end-date-filter", "date"),
         Input("aggregation-type", "children"),
     ],
+    [State("session-store", "data")],
     prevent_initial_call=True,
 )
 @log_callback_trigger
@@ -1237,7 +1406,12 @@ def clear_article_info_on_filter_change(
     start_date,
     end_date,
     aggregation_type,
+    session_data,
 ):
+    # Check authentication
+    if not session_data or not is_authenticated(session_data.get("session_id")):
+        raise PreventUpdate
+    
     return html.Div()
 
 
