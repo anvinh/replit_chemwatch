@@ -1116,6 +1116,48 @@ def update_dashboard(
             # Start y-axis from 1 (0.5 padding)
             hovermode="closest",
             xaxis=dict(
+                type="date",
+                range=[
+                    preselected_start,
+                    preselected_end,
+                ],  # Pre-selected range (last 2 years)
+                rangeslider=dict(
+                    visible=True,
+                    thickness=0.08,  # Reduced thickness (8% of plot height)
+                    bgcolor="rgba(0,0,0,0.1)",  # Light background
+                    borderwidth=1,
+                    bordercolor="rgb(204,204,204)",
+                    range=[data_min_date, data_max_date],  # Full data range in slider
+                    yaxis=dict(rangemode="fixed"),  # Keep y-axis fixed when sliding
+                ),
+                # Add range buttons for quick navigation
+                rangeselector=dict(
+                    buttons=list(
+                        [
+                            dict(count=3, label="3M", step="month", stepmode="backward"),
+                            dict(count=6, label="6M", step="month", stepmode="backward"),
+                            dict(count=1, label="1Y", step="year", stepmode="backward"),
+                            dict(count=2, label="2Y", step="year", stepmode="backward"),
+                            dict(step="all", label="All"),
+                        ],
+                    ),
+                    bgcolor="rgba(0,0,0,0.1)",
+                    bordercolor="rgb(204,204,204)",
+                    borderwidth=1,
+                    font=dict(size=12),
+                    x=0.01,
+                    y=0.99,
+                    xanchor="left",
+                    yanchor="top",
+                ),
+            ),
+            # Add title with data range info
+            title=dict(
+                text=f"{period_label}ly Articles Published<br><sub>Data Range: {data_min_date.strftime('%Y-%m-%d')} to {data_max_date.strftime('%Y-%m-%d')} | Showing: {preselected_start.strftime('%Y-%m-%d')} to {preselected_end.strftime('%Y-%m-%d')}</sub>",
+                x=0.5,
+                font=dict(size=16),
+            ),
+        )
 
 
 # Callback for downloading articles as Excel
