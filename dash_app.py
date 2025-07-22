@@ -114,6 +114,450 @@ def create_login_layout():
 
 def create_dashboard_layout():
     """Create main dashboard layout"""
+    return dbc.Container(
+        [
+            dbc.Row(
+                [
+                    # Sidebar
+                    dbc.Col(
+                        [
+                            html.Div(
+                                [
+                                    # Header
+                                    html.Div(
+                                        [
+                                            html.H1("ChemWatch", className="display-6"),
+                                            html.P(
+                                                "a HERCULES spin-off",
+                                                className="text-muted",
+                                            ),
+                                        ],
+                                        className="mb-4",
+                                        style={"borderBottom": "1px solid #dee2e6"},
+                                    ),
+                                    html.H4(
+                                        [html.I(className="fas fa-filter me-2"), "Filters"],
+                                        className="mb-4",
+                                    ),
+                                    # Date Filters Section
+                                    html.Div(
+                                        [
+                                            html.Div(
+                                                [
+                                                    dbc.Label(
+                                                        [
+                                                            html.I(className="fas fa-calendar me-1"),
+                                                            "Start Date",
+                                                        ],
+                                                    ),
+                                                    dcc.DatePickerSingle(
+                                                        id="start-date-filter",
+                                                        date=(
+                                                            datetime.now() - pd.DateOffset(years=2)
+                                                        ).date(),
+                                                        display_format="YYYY-MM-DD",
+                                                        style={
+                                                            "width": "100%",
+                                                            "height": "38px",
+                                                            "borderRadius": "0.375rem",
+                                                            "border": "1px solid #ced4da",
+                                                            "fontSize": "1rem",
+                                                            "padding": "0.375rem 0.75rem",
+                                                        },
+                                                    ),
+                                                ],
+                                                className="mb-3",
+                                            ),
+                                            html.Div(
+                                                [
+                                                    dbc.Label(
+                                                        [
+                                                            html.I(className="fas fa-calendar me-1"),
+                                                            "End Date",
+                                                        ],
+                                                    ),
+                                                    dcc.DatePickerSingle(
+                                                        id="end-date-filter",
+                                                        date=datetime.now().date(),
+                                                        display_format="YYYY-MM-DD",
+                                                        style={
+                                                            "width": "100%",
+                                                            "height": "38px",
+                                                            "borderRadius": "0.375rem",
+                                                            "border": "1px solid #ced4da",
+                                                            "fontSize": "1rem",
+                                                            "padding": "0.375rem 0.75rem",
+                                                        },
+                                                    ),
+                                                ],
+                                                className="mb-3",
+                                            ),
+                                        ],
+                                        className="mb-4 pb-3",
+                                        style={"borderBottom": "1px solid #dee2e6"},
+                                    ),
+                                    # Company Filter
+                                    html.Div(
+                                        [
+                                            dbc.Label("Company Filter"),
+                                            dcc.Dropdown(
+                                                id="company-filter",
+                                                placeholder="Select company...",
+                                                style={
+                                                    "border": "1",
+                                                    "padding": "0",
+                                                    "outline": "none",
+                                                },
+                                            ),
+                                        ],
+                                        className="mb-4",
+                                    ),
+                                    # Industry Filter
+                                    html.Div(
+                                        [
+                                            dbc.Label("Industry Filter"),
+                                            dcc.Dropdown(
+                                                id="industry-filter",
+                                                placeholder="Select industry...",
+                                                style={
+                                                    "border": "1",
+                                                    "padding": "0",
+                                                    "outline": "none",
+                                                },
+                                            ),
+                                        ],
+                                        className="mb-4",
+                                    ),
+                                    # Clear Filters Button
+                                    dbc.Button(
+                                        "Clear Filters",
+                                        id="clear-filters",
+                                        color="outline-secondary",
+                                        className="w-100 mb-3",
+                                    ),
+                                    # Filter Status
+                                    html.Div(id="filter-status", className="text-muted small"),
+                                ],
+                                className="p-3 bg-light",
+                            ),
+                        ],
+                        width=3,
+                        className="vh-100 position-fixed",
+                    ),
+                    # Main Content
+                    dbc.Col(
+                        [
+                            # Header
+                            html.H1("PFAS Articles & Companies Dashboard", className="display-6"),
+                            html.P(
+                                "Monitor and analyze PFAS-related articles and company involvement",
+                                className="text-muted",
+                            ),
+                            # Scatter Plot Chart
+                            dbc.Card(
+                                [
+                                    dbc.CardHeader(
+                                        [
+                                            html.H5(
+                                                [
+                                                    html.I(className="fas fa-chart-scatter me-2"),
+                                                    "Articles Published by Time Period",
+                                                ],
+                                                className="mb-0",
+                                            ),
+                                        ],
+                                    ),
+                                    dbc.CardBody(
+                                        [
+                                            dcc.Graph(id="scatter-plot-chart"),
+                                            html.Div(
+                                                [
+                                                    dbc.ButtonGroup(
+                                                        [
+                                                            dbc.Button(
+                                                                "Weekly",
+                                                                id="weekly-btn",
+                                                                color="outline-primary",
+                                                                className="me-2",
+                                                            ),
+                                                            dbc.Button(
+                                                                "Monthly",
+                                                                id="monthly-btn",
+                                                                color="primary",
+                                                                className="me-2",
+                                                            ),
+                                                            dbc.Button(
+                                                                "Quarterly",
+                                                                id="quarterly-btn",
+                                                                color="outline-primary",
+                                                            ),
+                                                        ],
+                                                        className="d-flex justify-content-center mt-3",
+                                                    ),
+                                                ],
+                                            ),
+                                            # Article info box
+                                            html.Div(id="article-info-box", className="mt-3"),
+                                        ],
+                                    ),
+                                ],
+                                className="mb-4",
+                            ),
+                            # Articles Table
+                            dbc.Card(
+                                [
+                                    dbc.CardHeader(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.H5(
+                                                        [
+                                                            html.I(className="fas fa-newspaper me-2"),
+                                                            "Articles",
+                                                        ],
+                                                        className="mb-0",
+                                                    ),
+                                                    html.Div([
+                                                        dbc.Badge(id="article-count", color="primary"),
+                                                        dbc.Button(
+                                                            [html.I(className="fas fa-download me-1"), "Download"],
+                                                            id="download-articles-btn",
+                                                            color="success",
+                                                            size="sm",
+                                                            className="ms-2"
+                                                        )
+                                                    ], className="d-flex align-items-center")
+                                                ],
+                                                className="d-flex justify-content-between align-items-center",
+                                            ),
+                                        ],
+                                    ),
+                                    dbc.CardBody(
+                                        [
+                                            dash_table.DataTable(
+                                                id="articles-table",
+                                                columns=[
+                                                    {
+                                                        "name": "Title",
+                                                        "id": "Title",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "Published Date",
+                                                        "id": "Published Date",
+                                                        "type": "datetime",
+                                                    },
+                                                    {
+                                                        "name": "Country",
+                                                        "id": "Country",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "Industry",
+                                                        "id": "Industry",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "Search Term",
+                                                        "id": "Search Term",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "PK",
+                                                        "id": "PK",
+                                                        "type": "text",
+                                                    },
+                                                ],
+                                                data=[],
+                                                sort_action="native",
+                                                filter_action="native",
+                                                filter_options={"case": "insensitive"},
+                                                page_action="native",
+                                                page_current=0,
+                                                page_size=10,
+                                                row_selectable="single",
+                                                selected_rows=[],
+                                                style_cell={
+                                                    "textAlign": "left",
+                                                    "padding": "10px",
+                                                    "fontFamily": "Arial",
+                                                    "cursor": "pointer",  # Make rows appear clickable
+                                                },
+                                                style_header={
+                                                    "backgroundColor": "rgb(230, 230, 230)",
+                                                    "fontWeight": "bold",
+                                                },
+                                                style_data_conditional=[
+                                                    {
+                                                        "if": {"row_index": "odd"},
+                                                        "backgroundColor": "rgb(248, 248, 248)",
+                                                    },
+                                                    {
+                                                        "if": {"state": "selected"},
+                                                        "backgroundColor": "rgba(0, 116, 217, 0.3)",
+                                                        "border": "1px solid rgb(0, 116, 217)",
+                                                    },
+                                                ],
+                                                style_cell_conditional=[
+                                                    {
+                                                        "if": {"column_id": "Title"},
+                                                        "width": "30%",
+                                                        "whiteSpace": "normal",
+                                                        "height": "auto",
+                                                    },
+                                                    {
+                                                        "if": {"column_id": "PK"},
+                                                        "width": "0%",
+                                                        "display": "none",
+                                                    },
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                                className="mb-4",
+                            ),
+                            # Companies Table
+                            dbc.Card(
+                                [
+                                    dbc.CardHeader(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.H5(
+                                                        [
+                                                            html.I(className="fas fa-building me-2"),
+                                                            "Related Companies",
+                                                        ],
+                                                        className="mb-0",
+                                                    ),
+                                                    html.Div([
+                                                        dbc.Badge(
+                                                            id="company-count",
+                                                            color="secondary",
+                                                        ),
+                                                        dbc.Button(
+                                                            [html.I(className="fas fa-download me-1"), "Download"],
+                                                            id="download-companies-btn",
+                                                            color="success",
+                                                            size="sm",
+                                                            className="ms-2"
+                                                        )
+                                                    ], className="d-flex align-items-center")
+                                                ],
+                                                className="d-flex justify-content-between align-items-center",
+                                            ),
+                                        ],
+                                    ),
+                                    dbc.CardBody(
+                                        [
+                                            dash_table.DataTable(
+                                                id="companies-table",
+                                                columns=[
+                                                    {
+                                                        "name": "Company Name",
+                                                        "id": "Company Name",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "Litigation Reason",
+                                                        "id": "Litigation Reason",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "Claim Category",
+                                                        "id": "Claim Category",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "Source of PFAS",
+                                                        "id": "Source of PFAS",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "Settlement Finalized",
+                                                        "id": "Settlement Finalized",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "Settlement Amount",
+                                                        "id": "Settlement Amount",
+                                                        "type": "text",
+                                                    },
+                                                    {
+                                                        "name": "PK",
+                                                        "id": "PK",
+                                                        "type": "text",
+                                                    },
+                                                ],
+                                                data=[],
+                                                sort_action="native",
+                                                filter_action="native",
+                                                filter_options={"case": "insensitive"},
+                                                page_action="native",
+                                                page_current=0,
+                                                page_size=10,
+                                                row_selectable="single",
+                                                selected_rows=[],
+                                                style_cell={
+                                                    "textAlign": "left",
+                                                    "padding": "10px",
+                                                    "fontFamily": "Arial",
+                                                    "cursor": "pointer",  # Make rows appear clickable
+                                                },
+                                                style_header={
+                                                    "backgroundColor": "rgb(230, 230, 230)",
+                                                    "fontWeight": "bold",
+                                                },
+                                                style_data_conditional=[
+                                                    {
+                                                        "if": {"row_index": "odd"},
+                                                        "backgroundColor": "rgb(248, 248, 248)",
+                                                    },
+                                                    {
+                                                        "if": {"state": "selected"},
+                                                        "backgroundColor": "rgba(0, 116, 217, 0.3)",
+                                                        "border": "1px solid rgb(0, 116, 217)",
+                                                    },
+                                                ],
+                                                style_cell_conditional=[
+                                                    {
+                                                        "if": {"column_id": "Company Name"},
+                                                        "width": "20%",
+                                                    },
+                                                    {
+                                                        "if": {"column_id": "PK"},
+                                                        "width": "0%",
+                                                        "display": "none",
+                                                    },
+                                                ],
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                        ],
+                        width=9,
+                        className="ms-auto",
+                    ),
+                ],
+            ),
+            # Hidden div to store selected article PK
+            html.Div(id="selected-article-pk", style={"display": "none"}),
+            html.Div(id="selected-company-pk", style={"display": "none"}),
+            # Hidden div to store aggregation type
+            html.Div(id="aggregation-type", children="monthly", style={"display": "none"}),
+            # Download components
+            dcc.Download(id="download-articles"),
+            dcc.Download(id="download-companies"),
+            # Logout button
+            html.Div([
+                dbc.Button("Logout", id="logout-button", color="secondary", size="sm", className="position-fixed", 
+                          style={"top": "10px", "right": "10px", "z-index": "1000"})
+            ])
+        ],
+        fluid=True,
+    )
 
 
 def get_articles(company_filter=None, industry_filter=None):
@@ -386,429 +830,7 @@ def get_industry_options():
     return options
 
 
-return dbc.Container(
-    [
-        dbc.Row(
-            [
-                # Sidebar
-                dbc.Col(
-                    [
-                        html.Div(
-                            [
-                                # Header
-                                html.Div(
-                                    [
-                                        html.H1("ChemWatch", className="display-6"),
-                                        html.P(
-                                            "a HERCULES spin-off",
-                                            className="text-muted",
-                                        ),
-                                    ],
-                                    className="mb-4",
-                                    style={"borderBottom": "1px solid #dee2e6"},
-                                ),
-                                html.H4(
-                                    [html.I(className="fas fa-filter me-2"), "Filters"],
-                                    className="mb-4",
-                                ),
-                                # Date Filters Section
-                                html.Div(
-                                    [
-                                        html.Div(
-                                            [
-                                                dbc.Label(
-                                                    [
-                                                        html.I(className="fas fa-calendar me-1"),
-                                                        "Start Date",
-                                                    ],
-                                                ),
-                                                dcc.DatePickerSingle(
-                                                    id="start-date-filter",
-                                                    date=(
-                                                        datetime.now() - pd.DateOffset(years=2)
-                                                    ).date(),
-                                                    display_format="YYYY-MM-DD",
-                                                    style={
-                                                        "width": "100%",
-                                                        "height": "38px",
-                                                        "borderRadius": "0.375rem",
-                                                        "border": "1px solid #ced4da",
-                                                        "fontSize": "1rem",
-                                                        "padding": "0.375rem 0.75rem",
-                                                    },
-                                                ),
-                                            ],
-                                            className="mb-3",
-                                        ),
-                                        html.Div(
-                                            [
-                                                dbc.Label(
-                                                    [
-                                                        html.I(className="fas fa-calendar me-1"),
-                                                        "End Date",
-                                                    ],
-                                                ),
-                                                dcc.DatePickerSingle(
-                                                    id="end-date-filter",
-                                                    date=datetime.now().date(),
-                                                    display_format="YYYY-MM-DD",
-                                                    style={
-                                                        "width": "100%",
-                                                        "height": "38px",
-                                                        "borderRadius": "0.375rem",
-                                                        "border": "1px solid #ced4da",
-                                                        "fontSize": "1rem",
-                                                        "padding": "0.375rem 0.75rem",
-                                                    },
-                                                ),
-                                            ],
-                                            className="mb-3",
-                                        ),
-                                    ],
-                                    className="mb-4 pb-3",
-                                    style={"borderBottom": "1px solid #dee2e6"},
-                                ),
-                                # Company Filter
-                                html.Div(
-                                    [
-                                        dbc.Label("Company Filter"),
-                                        dcc.Dropdown(
-                                            id="company-filter",
-                                            placeholder="Select company...",
-                                            style={
-                                                "border": "1",
-                                                "padding": "0",
-                                                "outline": "none",
-                                            },
-                                        ),
-                                    ],
-                                    className="mb-4",
-                                ),
-                                # Industry Filter
-                                html.Div(
-                                    [
-                                        dbc.Label("Industry Filter"),
-                                        dcc.Dropdown(
-                                            id="industry-filter",
-                                            placeholder="Select industry...",
-                                            style={
-                                                "border": "1",
-                                                "padding": "0",
-                                                "outline": "none",
-                                            },
-                                        ),
-                                    ],
-                                    className="mb-4",
-                                ),
-                                # Clear Filters Button
-                                dbc.Button(
-                                    "Clear Filters",
-                                    id="clear-filters",
-                                    color="outline-secondary",
-                                    className="w-100 mb-3",
-                                ),
-                                # Filter Status
-                                html.Div(id="filter-status", className="text-muted small"),
-                            ],
-                            className="p-3 bg-light",
-                        ),
-                    ],
-                    width=3,
-                    className="vh-100 position-fixed",
-                ),
-                # Main Content
-                dbc.Col(
-                    [
-                        # Header
-                        html.H1("PFAS Articles & Companies Dashboard", className="display-6"),
-                        html.P(
-                            "Monitor and analyze PFAS-related articles and company involvement",
-                            className="text-muted",
-                        ),
-                        # Scatter Plot Chart
-                        dbc.Card(
-                            [
-                                dbc.CardHeader(
-                                    [
-                                        html.H5(
-                                            [
-                                                html.I(className="fas fa-chart-scatter me-2"),
-                                                "Articles Published by Time Period",
-                                            ],
-                                            className="mb-0",
-                                        ),
-                                    ],
-                                ),
-                                dbc.CardBody(
-                                    [
-                                        dcc.Graph(id="scatter-plot-chart"),
-                                        html.Div(
-                                            [
-                                                dbc.ButtonGroup(
-                                                    [
-                                                        dbc.Button(
-                                                            "Weekly",
-                                                            id="weekly-btn",
-                                                            color="outline-primary",
-                                                            className="me-2",
-                                                        ),
-                                                        dbc.Button(
-                                                            "Monthly",
-                                                            id="monthly-btn",
-                                                            color="primary",
-                                                            className="me-2",
-                                                        ),
-                                                        dbc.Button(
-                                                            "Quarterly",
-                                                            id="quarterly-btn",
-                                                            color="outline-primary",
-                                                        ),
-                                                    ],
-                                                    className="d-flex justify-content-center mt-3",
-                                                ),
-                                            ],
-                                        ),
-                                        # Article info box
-                                        html.Div(id="article-info-box", className="mt-3"),
-                                    ],
-                                ),
-                            ],
-                            className="mb-4",
-                        ),
-                        # Articles Table
-                        dbc.Card(
-                            [
-                                dbc.CardHeader(
-                                    [
-                                        html.Div(
-                                            [
-                                                html.H5(
-                                                    [
-                                                        html.I(className="fas fa-newspaper me-2"),
-                                                        "Articles",
-                                                    ],
-                                                    className="mb-0",
-                                                ),
-                                                dbc.Badge(id="article-count", color="primary"),
-                                            ],
-                                            className="d-flex justify-content-between align-items-center",
-                                        ),
-                                    ],
-                                ),
-                                dbc.CardBody(
-                                    [
-                                        dash_table.DataTable(
-                                            id="articles-table",
-                                            columns=[
-                                                {
-                                                    "name": "Title",
-                                                    "id": "Title",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "Published Date",
-                                                    "id": "Published Date",
-                                                    "type": "datetime",
-                                                },
-                                                {
-                                                    "name": "Country",
-                                                    "id": "Country",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "Industry",
-                                                    "id": "Industry",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "Search Term",
-                                                    "id": "Search Term",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "PK",
-                                                    "id": "PK",
-                                                    "type": "text",
-                                                },
-                                            ],
-                                            data=[],
-                                            sort_action="native",
-                                            filter_action="native",
-                                            filter_options={"case": "insensitive"},
-                                            page_action="native",
-                                            page_current=0,
-                                            page_size=10,
-                                            row_selectable="single",
-                                            selected_rows=[],
-                                            style_cell={
-                                                "textAlign": "left",
-                                                "padding": "10px",
-                                                "fontFamily": "Arial",
-                                                "cursor": "pointer",  # Make rows appear clickable
-                                            },
-                                            style_header={
-                                                "backgroundColor": "rgb(230, 230, 230)",
-                                                "fontWeight": "bold",
-                                            },
-                                            style_data_conditional=[
-                                                {
-                                                    "if": {"row_index": "odd"},
-                                                    "backgroundColor": "rgb(248, 248, 248)",
-                                                },
-                                                {
-                                                    "if": {"state": "selected"},
-                                                    "backgroundColor": "rgba(0, 116, 217, 0.3)",
-                                                    "border": "1px solid rgb(0, 116, 217)",
-                                                },
-                                            ],
-                                            style_cell_conditional=[
-                                                {
-                                                    "if": {"column_id": "Title"},
-                                                    "width": "30%",
-                                                    "whiteSpace": "normal",
-                                                    "height": "auto",
-                                                },
-                                                {
-                                                    "if": {"column_id": "PK"},
-                                                    "width": "0%",
-                                                    "display": "none",
-                                                },
-                                            ],
-                                        ),
-                                    ],
-                                ),
-                            ],
-                            className="mb-4",
-                        ),
-                        # Companies Table
-                        dbc.Card(
-                            [
-                                dbc.CardHeader(
-                                    [
-                                        html.Div(
-                                            [
-                                                html.H5(
-                                                    [
-                                                        html.I(className="fas fa-building me-2"),
-                                                        "Related Companies",
-                                                    ],
-                                                    className="mb-0",
-                                                ),
-                                                dbc.Badge(
-                                                    id="company-count",
-                                                    color="secondary",
-                                                ),
-                                            ],
-                                            className="d-flex justify-content-between align-items-center",
-                                        ),
-                                    ],
-                                ),
-                                dbc.CardBody(
-                                    [
-                                        dash_table.DataTable(
-                                            id="companies-table",
-                                            columns=[
-                                                {
-                                                    "name": "Company Name",
-                                                    "id": "Company Name",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "Litigation Reason",
-                                                    "id": "Litigation Reason",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "Claim Category",
-                                                    "id": "Claim Category",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "Source of PFAS",
-                                                    "id": "Source of PFAS",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "Settlement Finalized",
-                                                    "id": "Settlement Finalized",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "Settlement Amount",
-                                                    "id": "Settlement Amount",
-                                                    "type": "text",
-                                                },
-                                                {
-                                                    "name": "PK",
-                                                    "id": "PK",
-                                                    "type": "text",
-                                                },
-                                            ],
-                                            data=[],
-                                            sort_action="native",
-                                            filter_action="native",
-                                            filter_options={"case": "insensitive"},
-                                            page_action="native",
-                                            page_current=0,
-                                            page_size=10,
-                                            row_selectable="single",
-                                            selected_rows=[],
-                                            style_cell={
-                                                "textAlign": "left",
-                                                "padding": "10px",
-                                                "fontFamily": "Arial",
-                                                "cursor": "pointer",  # Make rows appear clickable
-                                            },
-                                            style_header={
-                                                "backgroundColor": "rgb(230, 230, 230)",
-                                                "fontWeight": "bold",
-                                            },
-                                            style_data_conditional=[
-                                                {
-                                                    "if": {"row_index": "odd"},
-                                                    "backgroundColor": "rgb(248, 248, 248)",
-                                                },
-                                                {
-                                                    "if": {"state": "selected"},
-                                                    "backgroundColor": "rgba(0, 116, 217, 0.3)",
-                                                    "border": "1px solid rgb(0, 116, 217)",
-                                                },
-                                            ],
-                                            style_cell_conditional=[
-                                                {
-                                                    "if": {"column_id": "Company Name"},
-                                                    "width": "20%",
-                                                },
-                                                {
-                                                    "if": {"column_id": "PK"},
-                                                    "width": "0%",
-                                                    "display": "none",
-                                                },
-                                            ],
-                                        ),
-                                    ],
-                                ),
-                            ],
-                        ),
-                    ],
-                    width=9,
-                    className="ms-auto",
-                ),
-            ],
-        ),
-        # Hidden div to store selected article PK
-        html.Div(id="selected-article-pk", style={"display": "none"}),
-        html.Div(id="selected-company-pk", style={"display": "none"}),
-        # Hidden div to store aggregation type
-        html.Div(id="aggregation-type", children="monthly", style={"display": "none"}),
-        # Logout button
-        html.Div([
-            dbc.Button("Logout", id="logout-button", color="secondary", size="sm", className="position-fixed", 
-                      style={"top": "10px", "right": "10px", "z-index": "1000"})
-        ])
-    ],
-    fluid=True,
-)
+
 
 # App layout with authentication
 app.layout = html.Div([
@@ -1094,6 +1116,96 @@ def update_dashboard(
             # Start y-axis from 1 (0.5 padding)
             hovermode="closest",
             xaxis=dict(
+
+
+# Callback for downloading articles as Excel
+@app.callback(
+    Output("download-articles", "data"),
+    Input("download-articles-btn", "n_clicks"),
+    [
+        State("articles-table", "data"),
+        State("articles-table", "derived_virtual_data"),
+        State("company-filter", "value"),
+        State("industry-filter", "value"),
+        State("session-store", "data")
+    ],
+    prevent_initial_call=True,
+)
+def download_articles_excel(n_clicks, table_data, filtered_data, company_filter, industry_filter, session_data):
+    # Check authentication
+    if not session_data or not is_authenticated(session_data.get("session_id")):
+        raise PreventUpdate
+    
+    if not n_clicks:
+        raise PreventUpdate
+    
+    # Use filtered data if available, otherwise use all table data
+    data_to_export = filtered_data if filtered_data else table_data
+    
+    if not data_to_export:
+        raise PreventUpdate
+    
+    # Convert to DataFrame and prepare for Excel export
+    df = pd.DataFrame(data_to_export)
+    
+    # Remove PK column if it exists
+    if 'PK' in df.columns:
+        df = df.drop('PK', axis=1)
+    
+    # Generate filename with timestamp and filters
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filter_parts = []
+    if company_filter:
+        filter_parts.append(f"company-{company_filter[:20]}")
+    if industry_filter:
+        filter_parts.append(f"industry-{industry_filter[:20]}")
+    
+    filter_suffix = "_" + "_".join(filter_parts) if filter_parts else ""
+    filename = f"chemwatch_articles{filter_suffix}_{timestamp}.xlsx"
+    
+    return dcc.send_data_frame(df.to_excel, filename, index=False, sheet_name="Articles")
+
+# Callback for downloading companies as Excel
+@app.callback(
+    Output("download-companies", "data"),
+    Input("download-companies-btn", "n_clicks"),
+    [
+        State("companies-table", "data"),
+        State("companies-table", "derived_virtual_data"),
+        State("selected-article-pk", "children"),
+        State("session-store", "data")
+    ],
+    prevent_initial_call=True,
+)
+def download_companies_excel(n_clicks, table_data, filtered_data, selected_article_pk, session_data):
+    # Check authentication
+    if not session_data or not is_authenticated(session_data.get("session_id")):
+        raise PreventUpdate
+    
+    if not n_clicks:
+        raise PreventUpdate
+    
+    # Use filtered data if available, otherwise use all table data
+    data_to_export = filtered_data if filtered_data else table_data
+    
+    if not data_to_export:
+        raise PreventUpdate
+    
+    # Convert to DataFrame and prepare for Excel export
+    df = pd.DataFrame(data_to_export)
+    
+    # Remove PK column if it exists
+    if 'PK' in df.columns:
+        df = df.drop('PK', axis=1)
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filter_suffix = f"_article-{selected_article_pk}" if selected_article_pk else ""
+    filename = f"chemwatch_companies{filter_suffix}_{timestamp}.xlsx"
+    
+    return dcc.send_data_frame(df.to_excel, filename, index=False, sheet_name="Companies")
+
+
                 type="date",
                 range=[
                     preselected_start,
